@@ -38,7 +38,7 @@ CREATE TABLE spende (
     FOREIGN KEY (fundraiser_id) REFERENCES fundraiser(id)
 );
 
--- Verknüpfungstabelle für Use Case 1 (n:m Beziehung)
+
 CREATE TABLE spende_finanziert_produkt (
     spende_id INT NOT NULL,
     produkt_id INT NOT NULL,
