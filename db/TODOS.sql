@@ -20,3 +20,8 @@ CREATE TABLE fundraiser (
     email VARCHAR(100)
 );
    
+CREATE TABLE community (
+    community_id INTEGER PRIMARY KEY,
+    location TEXT,
+    deficit_of INTERGER
+);
