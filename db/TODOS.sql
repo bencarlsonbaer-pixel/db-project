@@ -1,7 +1,7 @@
 CREATE TABLE donor (
     donor_id INTEGER PRIMARY KEY,
     name TEXT,
-    email TEXT,
+    email VARCHAR(100),
     IBAN INTEGER, 
     length_minutes INTEGER
 );
