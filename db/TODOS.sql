@@ -8,7 +8,8 @@ CREATE TABLE donor (
 
 CREATE TABLE donation (
     donation_id INTEGER PRIMARY KEY,
-    zweck TEXT,
+    campaign_id INTEGER,
+    FOREIGN KEY (campaign_id) REFERENCES campaign(campaign_id)
     amount INTEGER,
     IBAN INTEGER, 
     date INTEGER
@@ -24,4 +25,25 @@ CREATE TABLE community (
     community_id INTEGER PRIMARY KEY,
     location TEXT,
     deficit_of INTERGER
+);
+
+CREATE TABLE campaign (
+    campaign_id INTEGER PRIMARY KEY,
+    revenue_total INTEGER,
+    revenue_goal INTEGER,
+    purpose TEXT,
+);
+
+CREATE TABLE delivery (
+    delivery_id INTEGER PRIMARY KEY,
+    destination VARCHAR(100),
+    goods TEXT,,
+    
+);
+
+CREATE TABLE delivery (
+    delivery_id INTEGER PRIMARY KEY,
+    destination VARCHAR(100),
+    goods TEXT,,
+    
 );
