@@ -22,8 +22,8 @@ CREATE TABLE donor (
 CREATE TABLE donation (
     donation_id INTEGER PRIMARY KEY,
     campaign_id INTEGER,
-    donor_id INTEGER
-    product_id INTEGER
+    donor_id INTEGER,
+    product_id INTEGER,
     amount INTEGER,
     IBAN INTEGER, 
     date INTEGER,
@@ -37,7 +37,7 @@ CREATE TABLE fundraiser (
     name TEXT,
     donor_id INTEGER,
     campaign_id INTEGER,
-    email VARCHAR(100)
+    email VARCHAR(100),
     FOREIGN KEY (donor_id) REFERENCES donor(donor_id),
     FOREIGN KEY (campaign_id) REFERENCES campaign(campaign_id)
 );
@@ -66,9 +66,9 @@ CREATE TABLE delivery (
     product_id INTEGER,
     community_id INTEGER,
     destination VARCHAR(100),
-    goods TEXT
+    goods TEXT,
     FOREIGN KEY (product_id) REFERENCES products(product_id),
-    FOREIGN KEY (community_id) REFERENCES receiving_community(community_id),
+    FOREIGN KEY (community_id) REFERENCES receiving_community(community_id)
 );
 
 CREATE TABLE products (
