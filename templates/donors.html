@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Donors</title>
+</head>
+<body>
+    <h1>Liste aller Donors</h1>
+    <ul>
+        {% for donor in donors %}
+            <li>{{ donor["name"] }} – {{ donor["email"] }} – IBAN: {{ donor["IBAN"] }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
