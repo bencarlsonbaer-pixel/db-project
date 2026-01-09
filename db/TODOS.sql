@@ -12,7 +12,7 @@ CREATE TABLE donor (
     fundraiser_id INTEGER,
     name TEXT,
     email VARCHAR(100),
-    IBAN INTEGER, 
+    IBAN VARCHAR(34), 
     length_minutes INTEGER,
     FOREIGN KEY (donation_id) REFERENCES donation(donation_id),
     FOREIGN KEY (fundraiser_id) REFERENCES fundraiser(fundraiser_id)
@@ -25,7 +25,7 @@ CREATE TABLE donation (
     donor_id INTEGER,
     product_id INTEGER,
     amount INTEGER,
-    IBAN INTEGER, 
+    IBAN VARCHAR(34), 
     date INTEGER,
     FOREIGN KEY (campaign_id) REFERENCES campaign(campaign_id),
     FOREIGN KEY (donor_id) REFERENCES donor(donor_id),
@@ -47,7 +47,7 @@ CREATE TABLE receiving_community (
     product_id INTEGER,
     delivery_id INTEGER,
     location TEXT,
-    deficit_of INTERGER,
+    deficit_of INTEGER,
     FOREIGN KEY (product_id) REFERENCES products(product_id),
     FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id)
 );
