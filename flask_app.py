@@ -135,5 +135,16 @@ def complete():
 def users():
 pass
 
+@app.route("/donors", methods=["GET"])
+@login_required
+def donors():
+    # Alle Donors aus der Datenbank abfragen, sortiert nach Name
+    donors = db_read(
+        "SELECT donor_id, name, email, IBAN FROM donor ORDER BY name",
+        ()
+    )
+    # Template aufrufen und Daten übergeben
+    return render_template("donors.html", donors=donors)
+    
 if __name__ == "__main__":
     app.run()
