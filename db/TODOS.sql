@@ -15,7 +15,7 @@ CREATE TABLE donor (
     IBAN INTEGER, 
     length_minutes INTEGER,
     FOREIGN KEY (donation_id) REFERENCES donation(donation_id),
-    FOREIGN KEY (fundraiser_id) REFERENCES fundraiser(fundraiser_id),
+    FOREIGN KEY (fundraiser_id) REFERENCES fundraiser(fundraiser_id)
     
 );
 
@@ -47,7 +47,7 @@ CREATE TABLE receiving_community (
     product_id INTEGER,
     delivery_id INTEGER,
     location TEXT,
-    deficit_of INTERGER
+    deficit_of INTERGER,
     FOREIGN KEY (product_id) REFERENCES products(product_id),
     FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id)
 );
