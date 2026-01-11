@@ -49,13 +49,13 @@
 
 {% extends "base.html" %}
 {% block content %}
-<ul class="user-list">
-{% for user in users %}
-<li class="user-name">
-{{ user.username }}
-</li>
-{% endfor %}
-</ul>
-</div>
+    <ul class="user-list">
+          {% for user in users %}
+              <li class="user-name">
+                {{ user.username }}
+              </li>
+          {% endfor %}
+        </ul>
+      </div>
 {% endblock %}
       
