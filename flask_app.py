@@ -128,13 +128,22 @@ def index():
 def complete():
     todo_id = request.form.get("id")
     db_write("DELETE FROM todos WHERE user_id=%s AND id=%s", (current_user.id, todo_id,))
+<<<<<<< HEAD
+    return redirect(url_for("index"))DROP TABLE IF EXISTS donation;
+=======
     return redirect(url_for("index"))
     
 @app.route("/users", methods=["GET"])
 @login_required
 def users():
 pass
+>>>>>>> 84d6b82151b1c167b1cdece8002437a5712ead54
 
+<<<<<<< HEAD
+
+
+
+=======
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
@@ -145,6 +154,7 @@ def donors():
     )
     # Template aufrufen und Daten übergeben
     return render_template("donors.html", donors=donors)
+
     
 if __name__ == "__main__":
     app.run()
