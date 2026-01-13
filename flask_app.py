@@ -28,32 +28,59 @@ app.secret_key = FLASK_SECRET_KEY
 # Init auth
 login_manager.init_app(app)
 login_manager.login_view = "login"
+# =========================
+# GitHub Webhook (AUTO DEPLOY)
+# =========================
+
+WEBHOOK_LOG = os.path.expanduser("~/mysite/webhook.log")
+
+def log_webhook(msg: str):
+    try:
+        with open(WEBHOOK_LOG, "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except Exception:
+        pass
 
 
-def is_valid_signature(x_hub_signature: str, data: bytes, private_key: str) -> bool:
-    """Validate GitHub webhook signature (X-Hub-Signature)."""
-    if not x_hub_signature or "=" not in x_hub_signature:
+def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
+    if not sig_header or "=" not in sig_header:
         return False
-    if not private_key:
+    if not secret:
         return False
 
-    hash_algorithm, github_signature = x_hub_signature.split("=", 1)
-    algorithm = getattr(hashlib, hash_algorithm, None)
-    if algorithm is None:
+    algo, github_sig = sig_header.split("=", 1)
+    digestmod = getattr(hashlib, algo, None)
+    if digestmod is None:
         return False
 
-    encoded_key = private_key.encode("latin-1")
-    mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
-    return hmac.compare_digest(mac.hexdigest(), github_signature)
+    mac = hmac.new(secret.encode("utf-8"), msg=data, digestmod=digestmod)
+    return hmac.compare_digest(mac.hexdigest(), github_sig)
 
 
 @app.post("/update_server")
 def webhook():
-    x_hub_signature = request.headers.get("X-Hub-Signature")
+    try:
+        sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
+        log_webhook(f"--- delivery --- sig_present={bool(sig)} bytes={len(request.data)}")
 
-    if not is_valid_signature(x_hub_signature, request.data, W_SECRET):
-        logger.warning("Webhook signature invalid")
-        return "Unauthorized", 401
+        if not is_valid_signature(sig, request.data, W_SECRET):
+            log_webhook("Unauthorized: signature invalid OR W_SECRET missing")
+            return "Unauthorized", 401
+
+        repo_path = os.path.expanduser("~/mysite")
+        log_webhook(f"repo_path={repo_path}")
+
+        repo = git.Repo(repo_path)
+        repo.remotes.origin.pull()
+
+        log_webhook("Pull OK")
+        return "Updated PythonAnywhere successfully", 200
+
+    except Exception as e:
+        log_webhook(f"ERROR {type(e).__name__}: {e}")
+        return "Update failed", 500
+
+
 
     try:
         repo = git.Repo("./mysite")
