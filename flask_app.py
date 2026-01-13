@@ -1,4 +1,4 @@
-from flask import Flask, redirect, render_template, request, url_for, abort
+from flask import Flask, redirect, render_template, request, url_for
 from dotenv import load_dotenv
 import os
 import git
@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load .env variables
+# Load .env variables (on PythonAnywhere, prefer setting env vars in Web tab)
 load_dotenv()
 W_SECRET = os.getenv("W_SECRET", "")
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
@@ -28,13 +28,16 @@ app.secret_key = FLASK_SECRET_KEY
 # Init auth
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
 # =========================
 # GitHub Webhook (AUTO DEPLOY)
 # =========================
 
 WEBHOOK_LOG = os.path.expanduser("~/mysite/webhook.log")
 
+
 def log_webhook(msg: str):
+    """Write webhook debug lines to a file (useful when PA error log doesn't update)."""
     try:
         with open(WEBHOOK_LOG, "a", encoding="utf-8") as f:
             f.write(msg + "\n")
@@ -43,6 +46,7 @@ def log_webhook(msg: str):
 
 
 def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
+    """Validate GitHub webhook signature from X-Hub-Signature or X-Hub-Signature-256."""
     if not sig_header or "=" not in sig_header:
         return False
     if not secret:
@@ -59,6 +63,11 @@ def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
 
 @app.post("/update_server")
 def webhook():
+    """
+    GitHub Webhook endpoint:
+    - verifies signature
+    - pulls latest code into ~/mysite
+    """
     try:
         sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
         log_webhook(f"--- delivery --- sig_present={bool(sig)} bytes={len(request.data)}")
@@ -78,17 +87,6 @@ def webhook():
 
     except Exception as e:
         log_webhook(f"ERROR {type(e).__name__}: {e}")
-        return "Update failed", 500
-
-
-
-    try:
-        repo = git.Repo("./mysite")
-        origin = repo.remotes.origin
-        origin.pull()
-        logger.info("Updated PythonAnywhere successfully via webhook")
-        return "Updated PythonAnywhere successfully", 200
-    except Exception as e:
         logger.exception("Webhook update failed: %s", e)
         return "Update failed", 500
 
@@ -195,7 +193,7 @@ def complete():
     return redirect(url_for("index"))
 
 
-# Tutorial-Route: /users (genau wie in der Anleitung)
+# Tutorial-Route: /users
 @app.route("/users", methods=["GET"])
 @login_required
 def users():
@@ -203,12 +201,82 @@ def users():
     return render_template("users.html", users=users)
 
 
-# Optional: Beispiel donors (nur falls ihr wirklich donor-Tabelle nutzt)
+# Donors page (optional)
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
-    donors = db_read("SELECT donor_id, name, email, IBAN FROM donor ORDER BY name", ())
+    donors = db_read("SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name", ())
     return render_template("donors.html", donors=donors)
+
+
+# -----------------------
+# DB Explorer (MySQL)
+# -----------------------
+@app.route("/dbexplorer", methods=["GET", "POST"])
+@login_required
+def dbexplorer():
+    raw = db_read("SHOW TABLES", ())
+    tables = []
+
+    if raw:
+        if isinstance(raw[0], dict):
+            key = list(raw[0].keys())[0]  # Tables_in_<dbname>
+            tables = [r[key] for r in raw]
+        else:
+            tables = [r[0] for r in raw]
+
+    tables = sorted(tables)
+
+    selected = []
+    limit = 50
+    where_text = ""
+    results = {}
+
+    if request.method == "POST":
+        selected = request.form.getlist("tables")
+        where_text = (request.form.get("where", "") or "").strip()
+
+        try:
+            limit = int(request.form.get("limit", "50"))
+        except ValueError:
+            limit = 50
+        limit = max(1, min(limit, 500))
+
+        # whitelist table names
+        selected = [t for t in selected if t in tables]
+
+        for t in selected:
+            sql = f"SELECT * FROM `{t}`"
+            params = []
+
+            # Optional raw WHERE (advanced; use carefully)
+            if where_text:
+                sql += f" WHERE {where_text}"
+
+            sql += " LIMIT %s"
+            params.append(limit)
+
+            rows = db_read(sql, tuple(params))
+
+            if rows and isinstance(rows[0], dict):
+                columns = list(rows[0].keys())
+                data_rows = [[r.get(c) for c in columns] for r in rows]
+            elif rows:
+                columns = [f"col_{i+1}" for i in range(len(rows[0]))]
+                data_rows = [list(r) for r in rows]
+            else:
+                columns, data_rows = [], []
+
+            results[t] = {"columns": columns, "rows": data_rows}
+
+    return render_template(
+        "dbexplorer.html",
+        tables=tables,
+        selected=selected,
+        limit=limit,
+        where_text=where_text,
+        results=results,
+    )
 
 
 if __name__ == "__main__":
