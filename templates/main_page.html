@@ -81,9 +81,7 @@
 .heart-button:hover::after{
   background:#8a0d15;
 }
-</style>
-</style>
-@keyframes pulse {
+  @keyframes pulse {
   0% { transform: rotate(-15deg) scale(1); }
   50% { transform: rotate(-15deg) scale(1.05); }
   100% { transform: rotate(-15deg) scale(1); }
@@ -92,6 +90,9 @@
 .heart-button{
   animation:pulse 2.5s infinite;
 }
+</style>
+</style>
+
     <ul class="todo-list">
           {% for todo in todos %}
             <li class="todo-item">
