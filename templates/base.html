@@ -17,15 +17,13 @@
     <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
 
     <style>
-      /* --- Spendenorganisation Look (Rot/Weiß) --- */
       :root{
         --red:#c1121f;
         --red-dark:#8a0d15;
       }
-
       body { background-color: #f9f9f9; }
 
-      /* Navbar: statt bootstrap-inverse schwarz -> rot */
+      /* Navbar rot statt schwarz */
       .navbar.navbar-inverse{
         background: var(--red);
         border-color: var(--red);
@@ -33,21 +31,17 @@
       .navbar-inverse .navbar-brand,
       .navbar-inverse .navbar-nav>li>a{
         color:#fff !important;
-        font-weight: 700;
+        font-weight:700;
       }
       .navbar-inverse .navbar-brand:hover,
       .navbar-inverse .navbar-nav>li>a:hover{
         color:#fff !important;
         text-decoration: underline;
       }
-      .navbar-inverse .navbar-toggle{
-        border-color: rgba(255,255,255,0.5);
-      }
-      .navbar-inverse .navbar-toggle .icon-bar{
-        background-color:#fff;
-      }
+      .navbar-inverse .navbar-toggle{ border-color: rgba(255,255,255,0.6); }
+      .navbar-inverse .navbar-toggle .icon-bar{ background:#fff; }
 
-      /* Kleine "Card" Optik */
+      /* Cards */
       .card{
         background:#fff;
         border-radius:10px;
@@ -67,7 +61,7 @@
         border-color: var(--red-dark);
       }
 
-      /* Deine Todo Styles bleiben, nur minimal aufgeräumt */
+      /* Optional: Todo styles bleiben kompatibel */
       .todo-list { margin-top: 30px; list-style: none; padding: 0; }
       .todo-item {
         position: relative; background: #fff;
@@ -84,13 +78,12 @@
       }
       .todo-checkbox { width: 20px; height: 20px; margin: 0; accent-color: #5cb85c; }
       .todo-content { font-weight: 600; flex: 1; }
-
-      /* Dropdown optisch passend */
-      .dropdown-menu>li>a{ font-weight:600; }
+      .navbar-brand { font-weight: 900; letter-spacing: .3px; }
     </style>
   </head>
 
   <body>
+    <!-- SAFE NAVBAR: nutzt nur Endpoints, die du garantiert hast -->
     <nav class="navbar navbar-inverse">
       <div class="container">
 
@@ -103,40 +96,20 @@
             <span class="icon-bar"></span>
           </button>
 
-          <!-- Branding -->
-          <a class="navbar-brand" href="{{ url_for('dashboard') }}">REDRELIEF</a>
+          <!-- WICHTIG: index existiert bei dir sicher -->
+          <a class="navbar-brand" href="{{ url_for('index') }}">REDRELIEF</a>
         </div>
 
         <div id="navbar" class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
-
-            <!-- Links zu euren Use-Case Seiten -->
-            <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-            <li><a href="{{ url_for('my_donations') }}">Spendeverlauf</a></li>
-            <li><a href="{{ url_for('top_donors') }}">Top-Spender</a></li>
-            <li><a href="{{ url_for('fundraiser_report') }}">Fundraiser-Analyse</a></li>
-
-            <!-- Dropdown für "Verwaltung" -->
-            <li class="dropdown">
-              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                Verwaltung <span class="caret"></span>
-              </a>
-              <ul class="dropdown-menu">
-                <li><a href="{{ url_for('fundraiser_new') }}">Fundraiser erstellen</a></li>
-                <li><a href="{{ url_for('delivery_plan') }}">Lieferung planen</a></li>
-                <li><a href="{{ url_for('product_donate') }}">Produkt spenden</a></li>
-                <li role="separator" class="divider"></li>
-                <li><a href="{{ url_for('dbexplorer') }}">DB Explorer</a></li>
-              </ul>
-            </li>
-
-            <!-- Optional: eure alte Todo-Startseite -->
-            <li><a href="{{ url_for('index') }}">Organizer</a></li>
-
+            <!-- sichere Links: nur solche, die du in flask_app.py schon hast -->
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('donors') }}">Donors</a></li>
+            <li><a href="{{ url_for('users') }}">Users</a></li>
+            <li><a href="{{ url_for('dbexplorer') }}">DB Explorer</a></li>
           </ul>
 
           <ul class="nav navbar-nav navbar-right">
-
             {% if current_user.is_authenticated %}
               <li><a href="#">Hallo, {{ current_user.username }}</a></li>
               <li><a href="{{ url_for('logout') }}">Logout</a></li>
@@ -144,9 +117,9 @@
               <li><a href="{{ url_for('login') }}">Login</a></li>
               <li><a href="{{ url_for('register') }}">Registrieren</a></li>
             {% endif %}
-
           </ul>
         </div>
+
       </div>
     </nav>
 
