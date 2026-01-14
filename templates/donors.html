@@ -1,15 +1,106 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>Donors</title>
-</head>
-<body>
-    <h1>Liste aller Donors</h1>
-    <ul>
+{% extends "base.html" %}
+{% block title %}Donors Übersicht{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1 style="margin:0;">Donors</h1>
+  <div class="muted">Rangliste der Top-Spender und die neuesten Spenden inkl. Kampagne.</div>
+</div>
+
+<div class="row">
+  <!-- TOP DONORS -->
+  <div class="card" style="flex:1; min-width:320px;">
+    <h2 style="margin-top:0;">🏆 Top-Donors</h2>
+    <div class="muted" style="margin-bottom:10px;">Sortiert nach gesamter Spendensumme.</div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Rang</th>
+            <th>Name</th>
+            <th>Total</th>
+            <th># Spenden</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in top_donors %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ d.name }}</td>
+            <td>{{ d.total_amount }}</td>
+            <td>{{ d.donation_count }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted">Noch keine Spenden vorhanden.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RECENT DONATIONS -->
+  <div class="card" style="flex:1; min-width:320px;">
+    <h2 style="margin-top:0;">🕒 Neuste Spenden</h2>
+    <div class="muted" style="margin-bottom:10px;">Letzte Spenden inkl. Betrag und Kampagne.</div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Donor</th>
+            <th>Betrag</th>
+            <th>Kampagne</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recent_donations %}
+          <tr>
+            <td>{{ r.date }}</td>
+            <td>{{ r.donor_name }}</td>
+            <td>{{ r.amount }}</td>
+            <td>{{ r.campaign_purpose }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted">Noch keine Spenden vorhanden.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- OPTIONAL: Donor directory (eure bisherige Liste) -->
+<div class="card">
+  <h2 style="margin-top:0;">📇 Alle Donors</h2>
+  <div class="muted" style="margin-bottom:10px;">Stammdaten aus der donor Tabelle.</div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>IBAN</th>
+          <th>Length (min)</th>
+        </tr>
+      </thead>
+      <tbody>
         {% for donor in donors %}
-            <li>{{ donor["name"] }} – {{ donor["email"] }} – IBAN: {{ donor["IBAN"] }}</li>
+        <tr>
+          <td>{{ donor.donor_id }}</td>
+          <td>{{ donor.name }}</td>
+          <td>{{ donor.email }}</td>
+          <td>{{ donor.IBAN }}</td>
+          <td>{{ donor.length_minutes }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">Keine Donors gefunden.</td></tr>
         {% endfor %}
-    </ul>
-</body>
-</html>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
