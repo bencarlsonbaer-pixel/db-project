@@ -282,6 +282,11 @@ def dbexplorer():
 @login_required
 def dashboard():
     return render_template("dashboard.html")
+
+@app.route("/donate", methods=["GET"])
+@login_required
+def donate():
+    return render_template("donate.html")
     
 if __name__ == "__main__":
     app.run()
