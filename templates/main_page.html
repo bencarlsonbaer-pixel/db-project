@@ -2,38 +2,86 @@
 
 {% block content %}
 
-<div style="text-align:center; margin:30px 0;">
-  <a href="{{ url_for('donate') }}" class="donate-heart">
-    ❤<br>DONATE
+<div class="donate-wrapper">
+  <a href="{{ url_for('donate') }}" class="heart-button">
+    <span>❤<br>DONATE</span>
   </a>
 </div>
 
 <style>
-.donate-heart{
-  display:inline-flex;
-  align-items:center;
+/* Wrapper für Zentrierung */
+.donate-wrapper{
+  display:flex;
   justify-content:center;
+  align-items:center;
+  margin:40px 0;
+}
+
+/* === ECHTES HERZ === */
+.heart-button{
+  position:relative;
   width:160px;
   height:140px;
   background:#c1121f;
+  transform: rotate(-15deg);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  text-decoration:none;
+  box-shadow:0 15px 35px rgba(193,18,31,0.45);
+}
+
+/* linke & rechte Rundung */
+.heart-button::before,
+.heart-button::after{
+  content:"";
+  position:absolute;
+  width:160px;
+  height:140px;
+  background:#c1121f;
+  border-radius:50%;
+  top:0;
+  left:0;
+}
+
+.heart-button::after{
+  left:auto;
+  right:0;
+}
+
+/* Herzspitze */
+.heart-button{
+  clip-path: polygon(
+    50% 100%,
+    0% 40%,
+    25% 0%,
+    50% 20%,
+    75% 0%,
+    100% 40%
+  );
+}
+
+/* Text */
+.heart-button span{
+  position:relative;
+  z-index:2;
+  transform: rotate(15deg);
   color:white;
-  font-size:26px;
   font-weight:900;
-  text-decoration:none;
+  font-size:26px;
+  text-align:center;
   line-height:1.1;
-  border-radius:50% 50% 45% 45%;
-  transform: rotate(-45deg);
-  box-shadow:0 10px 25px rgba(193,18,31,.4);
 }
-.donate-heart span,
-.donate-heart br{
-  transform: rotate(45deg);
-}
-.donate-heart:hover{
+
+/* Hover Effekt */
+.heart-button:hover{
   background:#8a0d15;
-  text-decoration:none;
-  color:white;
 }
+.heart-button:hover::before,
+.heart-button:hover::after{
+  background:#8a0d15;
+}
+</style>
 </style>
     <ul class="todo-list">
           {% for todo in todos %}
