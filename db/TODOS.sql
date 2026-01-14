@@ -62,3 +62,31 @@ CREATE TABLE donation (
     FOREIGN KEY (donor_id) REFERENCES donor(donor_id),
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
+CREATE TABLE delivery_item (
+  delivery_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  PRIMARY KEY (delivery_id, product_id),
+  FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id),
+  FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
+CREATE TABLE donation_delivery (
+  donation_id INT NOT NULL,
+  delivery_id INT NOT NULL,
+  PRIMARY KEY (donation_id, delivery_id),
+  FOREIGN KEY (donation_id) REFERENCES donation(donation_id),
+  FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id)
+);
+CREATE TABLE delivery_recipient (
+  delivery_id INT NOT NULL,
+  community_id INT NOT NULL,
+  PRIMARY KEY (delivery_id, community_id),
+  FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id),
+  FOREIGN KEY (community_id) REFERENCES receiving_community(community_id)
+);
+ALTER TABLE donor
+ADD COLUMN user_id INT UNIQUE;
+ALTER TABLE donor
+ADD CONSTRAINT fk_donor_user
+FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE donation MODIFY date DATE;
