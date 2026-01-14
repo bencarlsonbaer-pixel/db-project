@@ -3,95 +3,150 @@
 {% block content %}
 
 <div class="donate-wrapper">
-  <a href="{{ url_for('donate') }}" class="heart-button">
-    <span>❤<br>DONATE</span>
+  <a href="{{ url_for('donate') }}" class="heart-3d" aria-label="Donate">
+    <span class="heart-text">❤<br>DONATE</span>
   </a>
 </div>
 
 <style>
-/* Wrapper für Zentrierung */
+/* Zentrieren */
 .donate-wrapper{
   display:flex;
   justify-content:center;
   align-items:center;
-  margin:40px 0;
+  margin:42px 0 28px 0;
 }
 
-/* === ECHTES HERZ === */
-.heart-button{
+/* === HERZ: runder + realistischer === */
+.heart-3d{
   position:relative;
-  width:160px;
-  height:140px;
+  width:190px;
+  height:170px;
   background:#c1121f;
-  transform: rotate(-15deg);
+
+  /* echte Herzform: zwei runde Lappen + Spitze */
+  border-radius: 22px;
+
+  /* Drehung als Sticker */
+  transform: rotate(-18deg);
+
   display:flex;
-  justify-content:center;
   align-items:center;
+  justify-content:center;
   text-decoration:none;
-  box-shadow:0 15px 35px rgba(193,18,31,0.45);
+
+  /* 3D Schatten */
+  box-shadow:
+    0 22px 40px rgba(0,0,0,0.18),
+    0 12px 18px rgba(193,18,31,0.35);
+
+  /* Pulsieren */
+  animation: heartPulse 2.4s ease-in-out infinite;
+
+  /* Für den Glanz */
+  overflow:hidden;
+
+  /* Smooth */
+  transition: transform .15s ease, box-shadow .15s ease;
 }
 
-/* linke & rechte Rundung */
-.heart-button::before,
-.heart-button::after{
+/* Zwei runde Herz-Lappen */
+.heart-3d::before,
+.heart-3d::after{
   content:"";
   position:absolute;
-  width:160px;
-  height:140px;
+  width:120px;
+  height:120px;
   background:#c1121f;
   border-radius:50%;
-  top:0;
-  left:0;
+  top:10px;
 }
 
-.heart-button::after{
-  left:auto;
-  right:0;
+/* links/rechts positionieren */
+.heart-3d::before{ left:18px; }
+.heart-3d::after{ right:18px; }
+
+/* Herzspitze / Silhouette: runder als polygon */
+.heart-3d{
+  clip-path: path("M95 165 C25 120 5 80 25 50 C40 25 70 25 95 45 C120 25 150 25 165 50 C185 80 165 120 95 165 Z");
 }
 
-/* Herzspitze */
-.heart-button{
-  clip-path: polygon(
-    50% 100%,
-    0% 40%,
-    25% 0%,
-    50% 20%,
-    75% 0%,
-    100% 40%
-  );
+/* 3D Glanz oben links */
+.heart-3d .shine{
+  display:none;
+}
+.heart-3d::marker{ content:""; } /* harmless */
+
+/* Glanz-Layer */
+.heart-3d::selection{ background:transparent; }
+.heart-3d::after{ /* already used for right lobe - don't overwrite */ }
+
+/* extra Highlight via overlay (separates from lobes) */
+.heart-3d .heart-text{ /* will be above highlight */ }
+
+/* Highlight Overlay */
+.heart-3d::before{ /* left lobe (keep) */ }
+.heart-3d::after{  /* right lobe (keep) */ }
+
+/* Zusätzliches Overlay: pseudo-element via inner shadow using background gradients */
+.heart-3d{
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%),
+    radial-gradient(circle at 70% 25%, rgba(255,255,255,0.18), rgba(255,255,255,0) 60%),
+    linear-gradient(145deg, #d31625, #a90f1a);
+}
+
+/* Damit die Lappen farblich mitgehen (Gradient look) */
+.heart-3d::before,
+.heart-3d::after{
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%),
+    linear-gradient(145deg, #d31625, #a90f1a);
 }
 
 /* Text */
-.heart-button span{
+.heart-text{
   position:relative;
-  z-index:2;
-  transform: rotate(15deg);
+  z-index:5;
+
+  /* Text soll gerade stehen trotz gedrehtem Herz */
+  transform: rotate(18deg);
+
   color:white;
   font-weight:900;
-  font-size:26px;
+  font-size:30px;
   text-align:center;
-  line-height:1.1;
+  line-height:1.05;
+
+  /* leichter 3D Text */
+  text-shadow:
+    0 2px 0 rgba(0,0,0,0.18),
+    0 8px 18px rgba(0,0,0,0.22);
 }
 
-/* Hover Effekt */
-.heart-button:hover{
-  background:#8a0d15;
-}
-.heart-button:hover::before,
-.heart-button:hover::after{
-  background:#8a0d15;
-}
-  @keyframes pulse {
-  0% { transform: rotate(-15deg) scale(1); }
-  50% { transform: rotate(-15deg) scale(1.05); }
-  100% { transform: rotate(-15deg) scale(1); }
+/* Hover: leicht “anheben” */
+.heart-3d:hover{
+  transform: rotate(-18deg) translateY(-3px);
+  box-shadow:
+    0 26px 48px rgba(0,0,0,0.20),
+    0 14px 20px rgba(193,18,31,0.38);
 }
 
-.heart-button{
-  animation:pulse 2.5s infinite;
+/* Pulsieren (Rotation bleibt drin!) */
+@keyframes heartPulse{
+  0%   { transform: rotate(-18deg) scale(1); }
+  45%  { transform: rotate(-18deg) scale(1.06); }
+  70%  { transform: rotate(-18deg) scale(1.02); }
+  100% { transform: rotate(-18deg) scale(1); }
+}
+
+/* Mobile: etwas kleiner */
+@media (max-width: 480px){
+  .heart-3d{ width:165px; height:150px; }
+  .heart-text{ font-size:26px; }
 }
 </style>
-</style>
+
 
     <ul class="todo-list">
           {% for todo in todos %}
