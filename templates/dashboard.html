@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 style="margin:0;">Dashboard</h1>
+  <div class="muted">Alle Use Cases direkt erreichbar.</div>
+</div>
+
+<div class="card grid2">
+  <div class="card">
+    <h2>Use Case 1</h2>
+    <div class="muted">Spender verfolgt Weg seiner Spende.</div>
+    <div style="height:10px;"></div>
+    <a class="btn btn-primary" href="{{ url_for('my_donations') }}">Spendeverlauf anzeigen</a>
+  </div>
+
+  <div class="card">
+    <h2>Use Case 2</h2>
+    <div class="muted">Top-Spender Rangliste.</div>
+    <div style="height:10px;"></div>
+    <a class="btn" href="{{ url_for('top_donors') }}">Top-Spender anzeigen</a>
+  </div>
+
+  <div class="card">
+    <h2>Use Case 3</h2>
+    <div class="muted">Fundraiser-Analyse.</div>
+    <div style="height:10px;"></div>
+    <a class="btn" href="{{ url_for('fundraiser_report') }}">Analyse öffnen</a>
+  </div>
+
+  <div class="card">
+    <h2>Use Case 4</h2>
+    <div class="muted">Neuen Fundraiser erstellen.</div>
+    <div style="height:10px;"></div>
+    <a class="btn" href="{{ url_for('fundraiser_new') }}">Fundraiser erstellen</a>
+  </div>
+
+  <div class="card">
+    <h2>Use Case 5</h2>
+    <div class="muted">Lieferung planen & zuordnen.</div>
+    <div style="height:10px;"></div>
+    <a class="btn" href="{{ url_for('delivery_plan') }}">Lieferung planen</a>
+  </div>
+
+  <div class="card">
+    <h2>Use Case 6</h2>
+    <div class="muted">Produkt spenden & im System erfassen.</div>
+    <div style="height:10px;"></div>
+    <a class="btn" href="{{ url_for('product_donate') }}">Produkt spenden</a>
+  </div>
+</div>
+{% endblock %}
