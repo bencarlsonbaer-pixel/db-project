@@ -1,7 +1,3 @@
-{% extends "base.html" %}
-
-{% block content %}
-
 <div class="donate-wrapper">
   <a href="{{ url_for('donate') }}" class="heart-3d" aria-label="Donate">
     <span class="heart-text">❤<br>DONATE</span>
@@ -26,8 +22,9 @@
 
   /* echte Herzform: zwei runde Lappen + Spitze */
   border-radius: 22px;
-/* Drehung als Sticker */
-  transform: rotate(30deg);
+
+  /* Drehung als Sticker */
+  transform: rotate(-18deg);
 
   display:flex;
   align-items:center;
@@ -145,52 +142,3 @@
   .heart-text{ font-size:26px; }
 }
 </style>
-
-
-    <ul class="todo-list">
-          {% for todo in todos %}
-            <li class="todo-item">
-              <form action="/complete" method="POST" class="todo-complete-form">
-
-                <input type="hidden" name="id" value="{{ todo.id }}">
-
-                <!-- Checkbox triggert Submit -->
-                <input
-                  type="checkbox"
-                  class="todo-checkbox"
-                  id="todo-{{ todo.id }}"
-                  name="complete"
-                  value="1"
-                  onchange="this.form.submit()">
-
-                <label for="todo-{{ todo.id }}" class="todo-content">
-                  {{ todo.content }}
-                  <span class="todo-date">📅 {{ todo.due.strftime('%d.%m.%Y %H:%M') }}</span>
-                </label>
-              </form>
-            </li>
-          {% else %}
-            <div>Nichts zu tun🎉</div>
-          {% endfor %}
-        </ul>
-
-      <div class="todo-form">
-        <form action="." method="POST">
-          <div class="form-group">
-            <label for="contents">TODO</label>
-            <input type="text" id="contents" name="contents" class="form-control"
-              placeholder="Neues TODO eingeben…" required />
-          </div>
-
-          <div class="form-group">
-            <label for="due_at">Fällig am</label>
-            <input id="due_at" name="due_at" type="datetime-local" class="form-control" required>
-            <p class="help-block">Wähle Datum & Uhrzeit (z. B. 07.11.2025 14:30).</p>
-          </div>
-
-          <button type="submit" class="btn btn-primary">Hinzufügen</button>
-        </form>
-      </div>
-{% endblock %}
-
-      
