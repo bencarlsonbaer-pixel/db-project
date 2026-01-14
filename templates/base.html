@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -8,7 +8,8 @@
     <link rel="stylesheet"
       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
 
-    <title>Organizer</title>
+    <title>{% block title %}REDRELIEF{% endblock %}</title>
+
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
@@ -16,35 +17,83 @@
     <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
 
     <style>
+      /* --- Spendenorganisation Look (Rot/Weiß) --- */
+      :root{
+        --red:#c1121f;
+        --red-dark:#8a0d15;
+      }
+
       body { background-color: #f9f9f9; }
+
+      /* Navbar: statt bootstrap-inverse schwarz -> rot */
+      .navbar.navbar-inverse{
+        background: var(--red);
+        border-color: var(--red);
+      }
+      .navbar-inverse .navbar-brand,
+      .navbar-inverse .navbar-nav>li>a{
+        color:#fff !important;
+        font-weight: 700;
+      }
+      .navbar-inverse .navbar-brand:hover,
+      .navbar-inverse .navbar-nav>li>a:hover{
+        color:#fff !important;
+        text-decoration: underline;
+      }
+      .navbar-inverse .navbar-toggle{
+        border-color: rgba(255,255,255,0.5);
+      }
+      .navbar-inverse .navbar-toggle .icon-bar{
+        background-color:#fff;
+      }
+
+      /* Kleine "Card" Optik */
+      .card{
+        background:#fff;
+        border-radius:10px;
+        padding:14px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+        margin-bottom:14px;
+      }
+
+      /* Buttons rot */
+      .btn-primary{
+        background: var(--red);
+        border-color: var(--red);
+        font-weight:700;
+      }
+      .btn-primary:hover, .btn-primary:focus{
+        background: var(--red-dark);
+        border-color: var(--red-dark);
+      }
+
+      /* Deine Todo Styles bleiben, nur minimal aufgeräumt */
       .todo-list { margin-top: 30px; list-style: none; padding: 0; }
       .todo-item {
         position: relative; background: #fff;
         padding: 16px 20px 12px 20px; margin-bottom: 16px; border-radius: 8px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.06); line-height: 1.5;
       }
-      .todo-content { font-weight: 600; }
       .todo-date { display: block; color: #999; font-size: 0.9em; margin-top: 6px; }
       .todo-form { margin-top: 28px; background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-      .todo-item { display: block; }
       .todo-complete-form {
         display: flex;
         align-items: center;
         gap: 20px;
         margin: 0; padding: 0; border: 0; background: transparent;
       }
-      .todo-checkbox {
-        width: 20px; height: 20px; margin: 0;
-        accent-color: #5cb85c;
-      }
+      .todo-checkbox { width: 20px; height: 20px; margin: 0; accent-color: #5cb85c; }
       .todo-content { font-weight: 600; flex: 1; }
-      .navbar-brand { font-weight: 600; }
+
+      /* Dropdown optisch passend */
+      .dropdown-menu>li>a{ font-weight:600; }
     </style>
   </head>
 
-<body>  
+  <body>
     <nav class="navbar navbar-inverse">
       <div class="container">
+
         <div class="navbar-header">
           <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
             data-target="#navbar" aria-expanded="false" aria-controls="navbar">
@@ -53,31 +102,58 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="/">Organizer</a>
+
+          <!-- Branding -->
+          <a class="navbar-brand" href="{{ url_for('dashboard') }}">REDRELIEF</a>
         </div>
 
         <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+
+            <!-- Links zu euren Use-Case Seiten -->
+            <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li><a href="{{ url_for('my_donations') }}">Spendeverlauf</a></li>
+            <li><a href="{{ url_for('top_donors') }}">Top-Spender</a></li>
+            <li><a href="{{ url_for('fundraiser_report') }}">Fundraiser-Analyse</a></li>
+
+            <!-- Dropdown für "Verwaltung" -->
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                Verwaltung <span class="caret"></span>
+              </a>
+              <ul class="dropdown-menu">
+                <li><a href="{{ url_for('fundraiser_new') }}">Fundraiser erstellen</a></li>
+                <li><a href="{{ url_for('delivery_plan') }}">Lieferung planen</a></li>
+                <li><a href="{{ url_for('product_donate') }}">Produkt spenden</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="{{ url_for('dbexplorer') }}">DB Explorer</a></li>
+              </ul>
+            </li>
+
+            <!-- Optional: eure alte Todo-Startseite -->
+            <li><a href="{{ url_for('index') }}">Organizer</a></li>
+
+          </ul>
+
           <ul class="nav navbar-nav navbar-right">
 
             {% if current_user.is_authenticated %}
-
               <li><a href="#">Hallo, {{ current_user.username }}</a></li>
               <li><a href="{{ url_for('logout') }}">Logout</a></li>
-
             {% else %}
-
               <li><a href="{{ url_for('login') }}">Login</a></li>
               <li><a href="{{ url_for('register') }}">Registrieren</a></li>
-
             {% endif %}
+
           </ul>
         </div>
       </div>
     </nav>
 
     <div class="container">
-        {% block content %}{% endblock %}
+      {% block content %}{% endblock %}
     </div>
+
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
   </body>
