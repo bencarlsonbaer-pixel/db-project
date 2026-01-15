@@ -40,51 +40,6 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 
 # =========================
-# Helpers: DB schema safety (NO CONSOLE)
-# =========================
-
-def donor_has_user_id_column() -> bool:
-    """Check if donor.user_id exists. Never crashes the app."""
-    try:
-        rows = db_read("SHOW COLUMNS FROM donor LIKE 'user_id'", ())
-        return bool(rows)
-    except Exception:
-        logger.exception("Could not check donor.user_id column (donor table missing?)")
-        return False
-
-
-def ensure_donor_user_id_column():
-    """
-    Try to add donor.user_id if missing.
-    If ALTER privileges are missing, it will fail gracefully (no 500).
-    """
-    try:
-        if donor_has_user_id_column():
-            return
-
-        logger.info("donor.user_id missing -> trying ALTER TABLE donor ADD COLUMN user_id")
-        db_write("ALTER TABLE donor ADD COLUMN user_id INT NULL", ())
-
-        # optional unique (ignore if fails)
-        try:
-            db_write("ALTER TABLE donor ADD UNIQUE (user_id)", ())
-        except Exception:
-            pass
-
-        logger.info("donor.user_id added successfully")
-    except Exception:
-        logger.exception("ensure_donor_user_id_column failed (likely no ALTER privileges)")
-
-
-def table_exists(table_name: str) -> bool:
-    try:
-        rows = db_read("SHOW TABLES LIKE %s", (table_name,))
-        return bool(rows)
-    except Exception:
-        return False
-
-
-# =========================
 # GitHub Webhook (AUTO DEPLOY)
 # =========================
 
@@ -245,51 +200,16 @@ def users():
 
 
 # -----------------------
-# Admin Button: link user to donor (NO CONSOLE)
-# -----------------------
-@app.post("/link_me_as_donor")
-@login_required
-def link_me_as_donor():
-    """
-    No-console linking:
-    1) tries to create donor.user_id column if missing
-    2) if column exists, links current_user to the FIRST donor with user_id IS NULL
-    """
-    ensure_donor_user_id_column()
-
-    # If we still don't have the column (no ALTER rights), do nothing but never crash
-    if not donor_has_user_id_column():
-        return redirect(url_for("donors"))
-
-    try:
-        db_write(
-            """
-            UPDATE donor
-            SET user_id = %s
-            WHERE user_id IS NULL
-            LIMIT 1
-            """,
-            (current_user.id,),
-        )
-    except Exception:
-        logger.exception("link_me_as_donor failed (no donor rows? privileges?)")
-
-    return redirect(url_for("donors"))
-
-
-# -----------------------
-# Donors page (CRASH-SAFE)
+# Donors page (STABLE: NO user_id)
 # -----------------------
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
     """
-    This page will NEVER 500:
-    - If donor.user_id doesn't exist, we simply skip "my donations" query.
-    - If any query fails, we log and show empty sections instead of crashing.
+    Guaranteed stable donors page:
+    - NO donor.user_id usage
+    - Shows Top Donors, Recent Donations, and Donor Directory
     """
-    # We try to add the column, but if it fails, we still render safely.
-    ensure_donor_user_id_column()
 
     # 1) Donor directory
     donors_list = []
@@ -344,68 +264,8 @@ def donors():
         logger.exception("Failed loading recent_donations")
         recent_donations = []
 
-    # 4) My donation path (Use Case 1) — ONLY if donor.user_id exists
+    # 4) My donation path DISABLED (because donor.user_id does not exist)
     my_spend_path = []
-    try:
-        if donor_has_user_id_column():
-            donor_row = db_read(
-                "SELECT donor_id FROM donor WHERE user_id=%s LIMIT 1",
-                (current_user.id,)
-            ) or []
-
-            if donor_row:
-                my_donor_id = donor_row[0]["donor_id"]
-
-                has_dd = table_exists("donation_delivery")
-                has_di = table_exists("delivery_item")
-
-                if has_dd:
-                    sql = """
-                    SELECT
-                      dn.donation_id,
-                      dn.date,
-                      dn.amount,
-                      COALESCE(c.purpose, '-') AS campaign_purpose,
-                      p.type AS product_type,
-                      dd.delivery_id,
-                      del.destination,
-                      rc.location AS receiver_location,
-                      CASE
-                        WHEN dd.delivery_id IS NULL THEN 'In Vorbereitung'
-                        ELSE 'Geliefert'
-                      END AS delivery_status
-                    """
-
-                    if has_di:
-                        sql += """,
-                          di.quantity AS shipped_qty
-                        """
-
-                    sql += """
-                    FROM donation dn
-                    LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
-                    LEFT JOIN products p ON p.product_id = dn.product_id
-                    LEFT JOIN donation_delivery dd ON dd.donation_id = dn.donation_id
-                    LEFT JOIN delivery del ON del.delivery_id = dd.delivery_id
-                    LEFT JOIN receiving_community rc ON rc.community_id = del.community_id
-                    """
-
-                    if has_di:
-                        sql += """
-                        LEFT JOIN delivery_item di
-                          ON di.delivery_id = dd.delivery_id
-                         AND di.product_id = dn.product_id
-                        """
-
-                    sql += """
-                    WHERE dn.donor_id = %s
-                    ORDER BY dn.date DESC, dn.donation_id DESC
-                    """
-
-                    my_spend_path = db_read(sql, (my_donor_id,)) or []
-    except Exception:
-        logger.exception("Failed loading my_spend_path")
-        my_spend_path = []
 
     return render_template(
         "donors.html",
@@ -427,7 +287,7 @@ def dbexplorer():
 
     if raw:
         if isinstance(raw[0], dict):
-            key = list(raw[0].keys())[0]  # Tables_in_<dbname>
+            key = list(raw[0].keys())[0]
             tables = [r[key] for r in raw]
         else:
             tables = [r[0] for r in raw]
