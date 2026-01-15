@@ -40,28 +40,29 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 
 # =========================
-# Helper: schema safety (NO CONSOLE NEEDED)
+# Helpers: DB schema safety (NO CONSOLE)
 # =========================
 
 def donor_has_user_id_column() -> bool:
+    """Check if donor.user_id exists. Never crashes the app."""
     try:
         rows = db_read("SHOW COLUMNS FROM donor LIKE 'user_id'", ())
         return bool(rows)
     except Exception:
-        logger.exception("Could not check donor.user_id column")
+        logger.exception("Could not check donor.user_id column (donor table missing?)")
         return False
 
 
 def ensure_donor_user_id_column():
     """
-    Tries to add donor.user_id if missing.
-    NEVER crashes the app if ALTER TABLE fails.
+    Try to add donor.user_id if missing.
+    If ALTER privileges are missing, it will fail gracefully (no 500).
     """
     try:
         if donor_has_user_id_column():
             return
 
-        logger.info("donor.user_id missing -> trying to add it via ALTER TABLE")
+        logger.info("donor.user_id missing -> trying ALTER TABLE donor ADD COLUMN user_id")
         db_write("ALTER TABLE donor ADD COLUMN user_id INT NULL", ())
 
         # optional unique (ignore if fails)
@@ -71,11 +72,8 @@ def ensure_donor_user_id_column():
             pass
 
         logger.info("donor.user_id added successfully")
-
     except Exception:
-        # If PythonAnywhere user has no ALTER privileges, this will fail.
-        # We still must NOT crash.
-        logger.exception("ensure_donor_user_id_column failed (no ALTER privilege or other issue)")
+        logger.exception("ensure_donor_user_id_column failed (likely no ALTER privileges)")
 
 
 def table_exists(table_name: str) -> bool:
@@ -107,6 +105,12 @@ def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
 
 @app.post("/update_server")
 def webhook():
+    """
+    GitHub webhook:
+    - verifies signature
+    - auto-stashes local changes to avoid "would be overwritten" error
+    - pulls latest code
+    """
     try:
         sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
         if not is_valid_signature(sig, request.data, W_SECRET):
@@ -114,6 +118,15 @@ def webhook():
 
         repo_path = os.path.expanduser("~/mysite")
         repo = git.Repo(repo_path)
+
+        # If local changes exist, stash them so pull works
+        try:
+            if repo.is_dirty(untracked_files=True):
+                logger.warning("Repo dirty -> auto-stashing local changes before pull")
+                repo.git.stash("push", "-u", "-m", "webhook-autostash")
+        except Exception:
+            logger.exception("Could not stash changes (continuing)")
+
         repo.remotes.origin.pull()
         logger.info("Updated PythonAnywhere successfully via webhook")
         return "Updated PythonAnywhere successfully", 200
@@ -185,7 +198,7 @@ def logout():
 
 
 # -----------------------
-# App routes
+# App routes (Todos)
 # -----------------------
 @app.route("/", methods=["GET", "POST"])
 @login_required
@@ -232,16 +245,21 @@ def users():
 
 
 # -----------------------
-# Admin button: link current user to a donor (NO CONSOLE)
+# Admin Button: link user to donor (NO CONSOLE)
 # -----------------------
 @app.post("/link_me_as_donor")
 @login_required
 def link_me_as_donor():
     """
-    Verknüpft den eingeloggten User automatisch mit einem Donor (ohne Console).
-    Nimmt den ersten Donor ohne user_id.
+    No-console linking:
+    1) tries to create donor.user_id column if missing
+    2) if column exists, links current_user to the FIRST donor with user_id IS NULL
     """
     ensure_donor_user_id_column()
+
+    # If we still don't have the column (no ALTER rights), do nothing but never crash
+    if not donor_has_user_id_column():
+        return redirect(url_for("donors"))
 
     try:
         db_write(
@@ -253,35 +271,36 @@ def link_me_as_donor():
             """,
             (current_user.id,),
         )
-        return redirect(url_for("donors"))
     except Exception:
-        logger.exception("link_me_as_donor failed")
-        return redirect(url_for("donors"))
+        logger.exception("link_me_as_donor failed (no donor rows? privileges?)")
+
+    return redirect(url_for("donors"))
 
 
 # -----------------------
-# Donors page
+# Donors page (CRASH-SAFE)
 # -----------------------
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
     """
-    Crash-sichere Donor-Seite:
-    - zeigt Stammdaten, Top-Donors, Neuste Spenden
-    - zeigt 'Meine Spenden' nur wenn donor.user_id existiert + verknüpft
-    - nutzt donation_delivery + delivery_item (passend zu eurem TODOS.sql)
+    This page will NEVER 500:
+    - If donor.user_id doesn't exist, we simply skip "my donations" query.
+    - If any query fails, we log and show empty sections instead of crashing.
     """
+    # We try to add the column, but if it fails, we still render safely.
     ensure_donor_user_id_column()
 
-    # 1) Directory
+    # 1) Donor directory
     donors_list = []
     try:
         donors_list = db_read(
             "SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name",
             ()
-        )
+        ) or []
     except Exception:
         logger.exception("Failed loading donor directory")
+        donors_list = []
 
     # 2) Top donors
     top_donors = []
@@ -299,9 +318,10 @@ def donors():
             LIMIT 10
             """,
             ()
-        )
+        ) or []
     except Exception:
         logger.exception("Failed loading top_donors")
+        top_donors = []
 
     # 3) Recent donations
     recent_donations = []
@@ -319,73 +339,73 @@ def donors():
             LIMIT 10
             """,
             ()
-        )
+        ) or []
     except Exception:
         logger.exception("Failed loading recent_donations")
+        recent_donations = []
 
-    # 4) My donation path (Use Case 1) - only if linked
+    # 4) My donation path (Use Case 1) — ONLY if donor.user_id exists
     my_spend_path = []
     try:
-        # If user_id column exists but no link, this returns empty -> OK
-        donor_row = db_read(
-            "SELECT donor_id FROM donor WHERE user_id=%s LIMIT 1",
-            (current_user.id,)
-        )
+        if donor_has_user_id_column():
+            donor_row = db_read(
+                "SELECT donor_id FROM donor WHERE user_id=%s LIMIT 1",
+                (current_user.id,)
+            ) or []
 
-        if donor_row:
-            my_donor_id = donor_row[0]["donor_id"]
+            if donor_row:
+                my_donor_id = donor_row[0]["donor_id"]
 
-            # Use tables that exist in your TODOS.sql: donation_delivery + delivery_item
-            has_dd = table_exists("donation_delivery")
-            has_di = table_exists("delivery_item")
+                has_dd = table_exists("donation_delivery")
+                has_di = table_exists("delivery_item")
 
-            if has_dd:
-                sql = """
-                SELECT
-                  dn.donation_id,
-                  dn.date,
-                  dn.amount,
-                  COALESCE(c.purpose, '-') AS campaign_purpose,
-                  p.type AS product_type,
-                  p.cost_per_unit,
-                  dd.delivery_id,
-                  del.destination,
-                  rc.location AS receiver_location,
-                  CASE
-                    WHEN dd.delivery_id IS NULL THEN 'In Vorbereitung'
-                    ELSE 'Geliefert'
-                  END AS delivery_status
-                """
-
-                if has_di:
-                    sql += """,
-                      di.quantity AS shipped_qty
+                if has_dd:
+                    sql = """
+                    SELECT
+                      dn.donation_id,
+                      dn.date,
+                      dn.amount,
+                      COALESCE(c.purpose, '-') AS campaign_purpose,
+                      p.type AS product_type,
+                      dd.delivery_id,
+                      del.destination,
+                      rc.location AS receiver_location,
+                      CASE
+                        WHEN dd.delivery_id IS NULL THEN 'In Vorbereitung'
+                        ELSE 'Geliefert'
+                      END AS delivery_status
                     """
 
-                sql += """
-                FROM donation dn
-                LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
-                LEFT JOIN products p ON p.product_id = dn.product_id
-                LEFT JOIN donation_delivery dd ON dd.donation_id = dn.donation_id
-                LEFT JOIN delivery del ON del.delivery_id = dd.delivery_id
-                LEFT JOIN receiving_community rc ON rc.community_id = del.community_id
-                """
+                    if has_di:
+                        sql += """,
+                          di.quantity AS shipped_qty
+                        """
 
-                if has_di:
                     sql += """
-                    LEFT JOIN delivery_item di
-                      ON di.delivery_id = dd.delivery_id
-                     AND di.product_id = dn.product_id
+                    FROM donation dn
+                    LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
+                    LEFT JOIN products p ON p.product_id = dn.product_id
+                    LEFT JOIN donation_delivery dd ON dd.donation_id = dn.donation_id
+                    LEFT JOIN delivery del ON del.delivery_id = dd.delivery_id
+                    LEFT JOIN receiving_community rc ON rc.community_id = del.community_id
                     """
 
-                sql += """
-                WHERE dn.donor_id = %s
-                ORDER BY dn.date DESC, dn.donation_id DESC
-                """
+                    if has_di:
+                        sql += """
+                        LEFT JOIN delivery_item di
+                          ON di.delivery_id = dd.delivery_id
+                         AND di.product_id = dn.product_id
+                        """
 
-                my_spend_path = db_read(sql, (my_donor_id,))
+                    sql += """
+                    WHERE dn.donor_id = %s
+                    ORDER BY dn.date DESC, dn.donation_id DESC
+                    """
+
+                    my_spend_path = db_read(sql, (my_donor_id,)) or []
     except Exception:
         logger.exception("Failed loading my_spend_path")
+        my_spend_path = []
 
     return render_template(
         "donors.html",
@@ -397,17 +417,17 @@ def donors():
 
 
 # -----------------------
-# DB Explorer (optional)
+# DB Explorer
 # -----------------------
 @app.route("/dbexplorer", methods=["GET", "POST"])
 @login_required
 def dbexplorer():
-    raw = db_read("SHOW TABLES", ())
+    raw = db_read("SHOW TABLES", ()) or []
     tables = []
 
     if raw:
         if isinstance(raw[0], dict):
-            key = list(raw[0].keys())[0]
+            key = list(raw[0].keys())[0]  # Tables_in_<dbname>
             tables = [r[key] for r in raw]
         else:
             tables = [r[0] for r in raw]
@@ -441,7 +461,11 @@ def dbexplorer():
             sql += " LIMIT %s"
             params.append(limit)
 
-            rows = db_read(sql, tuple(params))
+            try:
+                rows = db_read(sql, tuple(params)) or []
+            except Exception:
+                rows = []
+                logger.exception("DB explorer query failed for table=%s", t)
 
             if rows and isinstance(rows[0], dict):
                 columns = list(rows[0].keys())
