@@ -21,9 +21,12 @@
         --red:#c1121f;
         --red-dark:#8a0d15;
       }
+
       body { background-color: #f9f9f9; }
 
-      /* Navbar rot statt schwarz */
+      /* =========================
+         NAVBAR (rot/weiß)
+         ========================= */
       .navbar.navbar-inverse{
         background: var(--red);
         border-color: var(--red);
@@ -40,8 +43,14 @@
       }
       .navbar-inverse .navbar-toggle{ border-color: rgba(255,255,255,0.6); }
       .navbar-inverse .navbar-toggle .icon-bar{ background:#fff; }
+      .navbar-brand{
+        font-weight:900;
+        letter-spacing:.3px;
+      }
 
-      /* Cards */
+      /* =========================
+         CARDS / LAYOUT
+         ========================= */
       .card{
         background:#fff;
         border-radius:10px;
@@ -50,59 +59,131 @@
         margin-bottom:14px;
       }
 
-      /* Buttons rot */
+      .muted{
+        color:#777;
+        font-size:0.95em;
+      }
+
+      .tablewrap{
+        overflow-x:auto;
+      }
+
+      /* =========================
+         BUTTONS
+         ========================= */
       .btn-primary{
         background: var(--red);
         border-color: var(--red);
         font-weight:700;
       }
-      .btn-primary:hover, .btn-primary:focus{
+      .btn-primary:hover,
+      .btn-primary:focus{
         background: var(--red-dark);
         border-color: var(--red-dark);
       }
 
-      /* Optional: Todo styles bleiben kompatibel */
+      .btn-danger{
+        background: var(--red);
+        border-color: var(--red);
+        font-weight:700;
+      }
+      .btn-danger:hover{
+        background: var(--red-dark);
+        border-color: var(--red-dark);
+      }
+
+      /* =========================
+         STATUS LABELS
+         ========================= */
+      .label-success{
+        background:#2ecc71 !important;
+      }
+      .label-warning{
+        background:#f39c12 !important;
+      }
+
+      .pill{
+        display:inline-block;
+        padding:4px 10px;
+        border-radius:999px;
+        font-size:0.85em;
+        font-weight:700;
+        background:#eee;
+      }
+
+      /* =========================
+         TODOs (bestehend)
+         ========================= */
       .todo-list { margin-top: 30px; list-style: none; padding: 0; }
       .todo-item {
         position: relative; background: #fff;
-        padding: 16px 20px 12px 20px; margin-bottom: 16px; border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.06); line-height: 1.5;
+        padding: 16px 20px 12px 20px;
+        margin-bottom: 16px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+        line-height: 1.5;
       }
-      .todo-date { display: block; color: #999; font-size: 0.9em; margin-top: 6px; }
-      .todo-form { margin-top: 28px; background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+      .todo-date {
+        display: block;
+        color: #999;
+        font-size: 0.9em;
+        margin-top: 6px;
+      }
+      .todo-form {
+        margin-top: 28px;
+        background: #fff;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      }
       .todo-complete-form {
         display: flex;
         align-items: center;
         gap: 20px;
-        margin: 0; padding: 0; border: 0; background: transparent;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
       }
-      .todo-checkbox { width: 20px; height: 20px; margin: 0; accent-color: #5cb85c; }
-      .todo-content { font-weight: 600; flex: 1; }
-      .navbar-brand { font-weight: 900; letter-spacing: .3px; }
+      .todo-checkbox {
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: #5cb85c;
+      }
+      .todo-content {
+        font-weight: 600;
+        flex: 1;
+      }
     </style>
   </head>
 
   <body>
-    <!-- SAFE NAVBAR: nutzt nur Endpoints, die du garantiert hast -->
+
+    <!-- =========================
+         NAVBAR (SAFE)
+         ========================= -->
     <nav class="navbar navbar-inverse">
       <div class="container">
 
         <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
-            data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+          <button type="button" class="navbar-toggle collapsed"
+            data-toggle="collapse"
+            data-target="#navbar"
+            aria-expanded="false"
+            aria-controls="navbar">
             <span class="sr-only">Navigation umschalten</span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
 
-          <!-- WICHTIG: index existiert bei dir sicher -->
+          <!-- index existiert sicher -->
           <a class="navbar-brand" href="{{ url_for('index') }}">REDRELIEF</a>
         </div>
 
         <div id="navbar" class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
-            <!-- sichere Links: nur solche, die du in flask_app.py schon hast -->
             <li><a href="{{ url_for('index') }}">Home</a></li>
             <li><a href="{{ url_for('donors') }}">Donors</a></li>
             <li><a href="{{ url_for('users') }}">Users</a></li>
@@ -123,6 +204,9 @@
       </div>
     </nav>
 
+    <!-- =========================
+         CONTENT
+         ========================= -->
     <div class="container">
       {% block content %}{% endblock %}
     </div>
