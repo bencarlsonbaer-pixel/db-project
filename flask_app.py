@@ -205,9 +205,86 @@ def users():
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
-    donors = db_read("SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name", ())
-    return render_template("donors.html", donors=donors)
+    # Stammdaten: alle Donors
+    donors = db_read(
+        "SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name",
+        ()
+    )
 
+    # Top-Donors
+    top_donors = db_read(
+        """
+        SELECT d.donor_id,
+               d.name,
+               COALESCE(SUM(dn.amount), 0) AS total_amount,
+               COUNT(dn.donation_id) AS donation_count
+        FROM donor d
+        LEFT JOIN donation dn ON dn.donor_id = d.donor_id
+        GROUP BY d.donor_id, d.name
+        ORDER BY total_amount DESC
+        LIMIT 10
+        """,
+        ()
+    )
+
+    # Neuste Spenden
+    recent_donations = db_read(
+        """
+        SELECT dn.date,
+               d.name AS donor_name,
+               dn.amount,
+               COALESCE(c.purpose, '-') AS campaign_purpose
+        FROM donation dn
+        JOIN donor d ON d.donor_id = dn.donor_id
+        LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
+        ORDER BY dn.date DESC, dn.donation_id DESC
+        LIMIT 10
+        """,
+        ()
+    )
+
+    # --- MEINE SPENDEN (Use Case 1) ---
+    my_spend_path = []
+    donor_row = db_read(
+        "SELECT donor_id, name FROM donor WHERE user_id=%s LIMIT 1",
+        (current_user.id,)
+    )
+
+    if donor_row:
+        my_donor_id = donor_row[0]["donor_id"]
+
+        my_spend_path = db_read(
+            """
+            SELECT
+              dn.donation_id,
+              dn.date,
+              dn.amount,
+              COALESCE(c.purpose, '-') AS campaign_purpose,
+              p.type AS product_type,
+              p.cost_per_unit,
+              dp.quantity AS shipped_qty,
+              del.delivery_id,
+              del.destination,
+              rc.location AS receiver_location
+            FROM donation dn
+            LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
+            LEFT JOIN products p ON p.product_id = dn.product_id
+            LEFT JOIN delivery_product dp ON dp.product_id = dn.product_id
+            LEFT JOIN delivery del ON del.delivery_id = dp.delivery_id
+            LEFT JOIN receiving_community rc ON rc.community_id = del.community_id
+            WHERE dn.donor_id = %s
+            ORDER BY dn.date DESC, dn.donation_id DESC
+            """,
+            (my_donor_id,)
+        )
+
+    return render_template(
+        "donors.html",
+        donors=donors,
+        top_donors=top_donors,
+        recent_donations=recent_donations,
+        my_spend_path=my_spend_path
+    )
 
 # -----------------------
 # DB Explorer (MySQL)
