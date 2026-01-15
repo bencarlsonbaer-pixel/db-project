@@ -90,3 +90,10 @@ ALTER TABLE donor
 ADD CONSTRAINT fk_donor_user
 FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE donation MODIFY date DATE;
+
+ALTER TABLE donor
+ADD COLUMN user_id INT UNIQUE;
+
+ALTER TABLE donor
+ADD CONSTRAINT fk_donor_user
+FOREIGN KEY (user_id) REFERENCES users(id);
