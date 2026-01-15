@@ -75,44 +75,25 @@ def load_user(user_id):
 
 
 def register_user(username, password):
-    logger.info("register_user(): versuche neuen User '%s' anzulegen", username)
-
-    existing = User.get_by_username(username)
-    if existing:
+    """
+    Legt NUR einen User an.
+    KEIN automatischer Donor-Eintrag.
+    Die Verknüpfung user ↔ donor erfolgt manuell per SQL.
+    """
+    if User.get_by_username(username):
         return False
 
     hashed = generate_password_hash(password)
 
     try:
-        # 1) User anlegen
         db_write(
             "INSERT INTO users (username, password) VALUES (%s, %s)",
             (username, hashed)
         )
-
-        # 2) user_id holen
-        user_row = db_read(
-            "SELECT id FROM users WHERE username=%s",
-            (username,)
-        )
-        user_id = user_row[0]["id"]
-
-        # 3) Donor automatisch anlegen & verknüpfen
-        db_write(
-            """
-            INSERT INTO donor (user_id, name, email)
-            VALUES (%s, %s, NULL)
-            """,
-            (user_id, username)
-        )
-
-        logger.info("User '%s' + Donor-Profil erfolgreich angelegt", username)
-
+        return True
     except Exception:
-        logger.exception("Fehler beim Registrieren von '%s'", username)
+        logger.exception("Fehler beim Registrieren von User '%s'", username)
         return False
-
-    return True
     
 def authenticate(username, password):
     logger.info("authenticate(): Login-Versuch für '%s'", username)
