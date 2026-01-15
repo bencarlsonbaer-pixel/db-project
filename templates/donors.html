@@ -13,7 +13,18 @@
   <div class="muted" style="margin-bottom:10px;">
     Hier siehst du, welches Produkt du finanziert hast und ob/wann es geliefert wurde.
   </div>
+  
+<div style="margin-bottom:18px;">
+  <form method="POST" action="{{ url_for('link_me_as_donor') }}">
+    <button type="submit" class="btn btn-danger">
+      🔗 Mich als Spender verknüpfen
+    </button>
+  </form>
 
+  <p class="muted" style="margin-top:8px;">
+    Falls „Meine Spenden“ leer ist, klicke einmal auf diesen Button.
+  </p>
+</div>
   <div class="tablewrap">
     <table>
       <thead>
@@ -160,3 +171,4 @@
   </div>
 </div>
 {% endblock %}
+
