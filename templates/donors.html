@@ -1,6 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Donors Übersicht{% endblock %}
 
+<div class="page-header" style="margin-bottom:25px;">
+  <h1 style="margin-top:0;">🤝 Spender & Spenden</h1>
+  <p class="muted">
+    Hier siehst du Top-Spender, aktuelle Spenden und den Weg deiner eigenen Spenden
+    bis zur Lieferung der Hilfsgüter.
+  </p>
+</div>
+<div class="card">
+  <h2 style="margin-top:0;">🙋 Meine Spenden (Weg bis zur Lieferung)</h2>
+  <div class="muted" style="margin-bottom:10px;">
+    Hier siehst du, welches Produkt du finanziert hast und ob/wann es geliefert wurde.
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Spende-ID</th>
+          <th>Datum</th>
+          <th>Betrag</th>
+          <th>Kampagne</th>
+          <th>Produkt</th>
+          <th>Lieferstatus</th>
+          <th>Ziel</th>
+          <th>Empfänger</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in my_spend_path %}
+        <tr>
+          <td>{{ r.donation_id }}</td>
+          <td>{{ r.date }}</td>
+          <td>{{ r.amount }}</td>
+          <td>{{ r.campaign_purpose }}</td>
+          <td>{{ r.product_type or "-" }}</td>
+
+          {% if r.delivery_id %}
+            <td><span class="pill">Geliefert</span></td>
+            <td>{{ r.destination }}</td>
+            <td>{{ r.receiver_location }}</td>
+          {% else %}
+            <td><span class="pill">In Vorbereitung</span></td>
+            <td class="muted">—</td>
+            <td class="muted">—</td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="muted">Du hast noch keine Spenden (oder dein User ist noch nicht mit einem Donor verknüpft).</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 {% block content %}
 <div class="card">
   <h1 style="margin:0;">Donors</h1>
