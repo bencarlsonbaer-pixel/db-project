@@ -1,90 +1,75 @@
 {% extends "base.html" %}
-
 {% block title %}Donors Übersicht{% endblock %}
 
 {% block content %}
 
-<div class="page-header" style="margin-bottom:25px;">
+<div class="page-header" style="margin-bottom:18px;">
   <h1 style="margin-top:0;">🤝 Spender & Spenden</h1>
-  <p class="muted">
-    Hier siehst du Top-Spender, aktuelle Spenden und den Weg deiner eigenen Spenden
-    bis zur Lieferung der Hilfsgüter.
+  <p class="muted" style="margin:6px 0 0 0;">
+    Übersicht der wichtigsten Spender-Infos: Rangliste, aktuelle Spenden und Spender-Stammdaten.
   </p>
 </div>
 
-<!-- Admin Button -->
+<style>
+  .muted{ color:#777; }
+  .row-flex{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    align-items:stretch;
+  }
+  .card{
+    background:#fff;
+    border-radius:10px;
+    padding:14px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+    margin-bottom:14px;
+  }
+  .tablewrap{ overflow:auto; }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+  }
+  th, td{
+    padding:10px 12px;
+    border-bottom:1px solid #eee;
+    vertical-align:top;
+    white-space:nowrap;
+  }
+  th{
+    font-weight:800;
+    background:#fafafa;
+  }
+  .pill{
+    display:inline-block;
+    padding:2px 10px;
+    border-radius:999px;
+    font-weight:800;
+    font-size:12px;
+    border:1px solid rgba(193,18,31,.25);
+    color:#c1121f;
+    background:rgba(193,18,31,.06);
+  }
+</style>
+
+<!-- INFO: Meine Spenden -->
 <div class="card">
-  <h2 style="margin-top:0;">🔗 Konto verbinden</h2>
-  <p class="muted" style="margin-bottom:10px;">
-    Falls „Meine Spenden“ leer ist, klicke einmal auf diesen Button. (Keine Console nötig.)
+  <h2 style="margin-top:0;">🙋 Meine Spenden</h2>
+  <p class="muted" style="margin:0;">
+    Dieser Bereich ist im aktuellen Stand deaktiviert, weil eure Datenbank-Spalte <code>donor.user_id</code>
+    noch nicht vorhanden ist. Sobald ihr die Verknüpfung ergänzt, kann hier der Spendenweg bis zur Lieferung angezeigt werden.
   </p>
-  <form method="POST" action="{{ url_for('link_me_as_donor') }}">
-    <button type="submit" class="btn btn-danger">
-      🔗 Mich als Spender verknüpfen
-    </button>
-  </form>
 </div>
 
-<!-- Meine Spenden -->
-<div class="card">
-  <h2 style="margin-top:0;">🙋 Meine Spenden (Weg bis zur Lieferung)</h2>
-  <div class="muted" style="margin-bottom:10px;">
-    Hier siehst du, welches Produkt du finanziert hast und ob/wann es geliefert wurde.
-  </div>
-
-  <div class="tablewrap">
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>Spende-ID</th>
-          <th>Datum</th>
-          <th>Betrag</th>
-          <th>Kampagne</th>
-          <th>Produkt</th>
-          <th>Status</th>
-          <th>Ziel</th>
-          <th>Empfänger</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in my_spend_path %}
-        <tr>
-          <td>{{ r.donation_id }}</td>
-          <td>{{ r.date }}</td>
-          <td>{{ r.amount }}</td>
-          <td>{{ r.campaign_purpose }}</td>
-          <td>{{ r.product_type or "-" }}</td>
-
-          {% if r.delivery_id %}
-            <td><span class="label label-success">Geliefert</span></td>
-            <td>{{ r.destination or "-" }}</td>
-            <td>{{ r.receiver_location or "-" }}</td>
-          {% else %}
-            <td><span class="label label-warning">In Vorbereitung</span></td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
-          {% endif %}
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="8" class="muted">
-            Du hast noch keine Spenden (oder dein User ist noch nicht mit einem Donor verknüpft).
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="row" style="display:flex; gap:14px; flex-wrap:wrap;">
+<div class="row-flex">
   <!-- TOP DONORS -->
   <div class="card" style="flex:1; min-width:320px;">
     <h2 style="margin-top:0;">🏆 Top-Donors</h2>
     <div class="muted" style="margin-bottom:10px;">Sortiert nach gesamter Spendensumme.</div>
 
     <div class="tablewrap">
-      <table class="table table-striped">
+      <table>
         <thead>
           <tr>
             <th>Rang</th>
@@ -96,13 +81,15 @@
         <tbody>
           {% for d in top_donors %}
           <tr>
-            <td>{{ loop.index }}</td>
+            <td><span class="pill">{{ loop.index }}</span></td>
             <td>{{ d.name }}</td>
             <td>{{ d.total_amount }}</td>
             <td>{{ d.donation_count }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="4" class="muted">Noch keine Spenden vorhanden.</td></tr>
+          <tr>
+            <td colspan="4" class="muted">Noch keine Spenden vorhanden.</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -115,7 +102,7 @@
     <div class="muted" style="margin-bottom:10px;">Letzte Spenden inkl. Betrag und Kampagne.</div>
 
     <div class="tablewrap">
-      <table class="table table-striped">
+      <table>
         <thead>
           <tr>
             <th>Datum</th>
@@ -133,7 +120,9 @@
             <td>{{ r.campaign_purpose }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="4" class="muted">Noch keine Spenden vorhanden.</td></tr>
+          <tr>
+            <td colspan="4" class="muted">Noch keine Spenden vorhanden.</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -141,13 +130,13 @@
   </div>
 </div>
 
-<!-- Alle Donors -->
+<!-- DONOR DIRECTORY -->
 <div class="card">
   <h2 style="margin-top:0;">📇 Alle Donors</h2>
-  <div class="muted" style="margin-bottom:10px;">Stammdaten aus der donor Tabelle.</div>
+  <div class="muted" style="margin-bottom:10px;">Stammdaten aus der Tabelle <code>donor</code>.</div>
 
   <div class="tablewrap">
-    <table class="table table-striped">
+    <table>
       <thead>
         <tr>
           <th>ID</th>
@@ -167,7 +156,9 @@
           <td>{{ donor.length_minutes }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="muted">Keine Donors gefunden.</td></tr>
+        <tr>
+          <td colspan="5" class="muted">Keine Donors gefunden.</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
