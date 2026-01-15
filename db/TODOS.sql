@@ -106,3 +106,6 @@ CREATE TABLE IF NOT EXISTS delivery_product (
   FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id),
   FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
+UPDATE donor
+SET user_id = (SELECT id FROM users WHERE username='gwengurt')
+WHERE donor_id = 1;
