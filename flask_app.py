@@ -40,10 +40,25 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 
 # =========================
-# GitHub Webhook (AUTO DEPLOY) - Tutorial Standard
+# GitHub Webhook (AUTO DEPLOY) - HARD DEPLOY (fixes "local changes" issues)
 # =========================
 
+WEBHOOK_LOG = os.path.expanduser("~/mysite/webhook.log")
+
+def _wh_log(msg: str):
+    try:
+        with open(WEBHOOK_LOG, "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except Exception:
+        pass
+
+
 def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
+    """
+    Accepts GitHub signatures:
+    - X-Hub-Signature: sha1=...
+    - X-Hub-Signature-256: sha256=...
+    """
     if not sig_header or "=" not in sig_header:
         return False
     if not secret:
@@ -61,20 +76,38 @@ def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
 @app.post("/update_server")
 def webhook():
     """
-    Minimal webhook: verify signature + git pull.
-    Voraussetzung: Keine lokalen Änderungen auf PythonAnywhere (sonst pull-Fehler).
+    HARD DEPLOY:
+    - verifies signature
+    - fetches origin
+    - resets hard to origin/main (overwrites local changes)
+    - cleans untracked files
+    This prevents "would be overwritten by merge" forever.
     """
-    sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
-    if not is_valid_signature(sig, request.data, W_SECRET):
-        return "Unauthorized", 401
-
     try:
-        repo = git.Repo(os.path.expanduser("~/mysite"))
-        origin = repo.remotes.origin
-        origin.pull()
-        logger.info("Updated PythonAnywhere successfully via webhook")
+        sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
+        if not is_valid_signature(sig, request.data, W_SECRET):
+            _wh_log("Unauthorized: bad signature or missing W_SECRET")
+            return "Unauthorized", 401
+
+        repo_path = os.path.expanduser("~/mysite")
+        _wh_log(f"Deploy start repo_path={repo_path}")
+
+        repo = git.Repo(repo_path)
+
+        # Make sure we have origin and fetch newest commits
+        repo.remotes.origin.fetch(prune=True)
+
+        # HARD RESET to origin/main
+        repo.git.reset("--hard", "origin/main")
+
+        # Remove untracked files/folders (incl. ones created manually on server)
+        repo.git.clean("-fd")
+
+        _wh_log("Deploy OK: reset --hard origin/main + clean -fd")
         return "Updated PythonAnywhere successfully", 200
+
     except Exception as e:
+        _wh_log(f"ERROR: {type(e).__name__}: {e}")
         logger.exception("Webhook update failed: %s", e)
         return "Update failed", 500
 
