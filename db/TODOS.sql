@@ -97,3 +97,12 @@ ADD COLUMN user_id INT UNIQUE;
 ALTER TABLE donor
 ADD CONSTRAINT fk_donor_user
 FOREIGN KEY (user_id) REFERENCES users(id);
+
+CREATE TABLE IF NOT EXISTS delivery_product (
+  delivery_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  PRIMARY KEY (delivery_id, product_id),
+  FOREIGN KEY (delivery_id) REFERENCES delivery(delivery_id),
+  FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
