@@ -200,7 +200,29 @@ def users():
     users = db_read("SELECT username FROM users ORDER BY username", ())
     return render_template("users.html", users=users)
 
+@app.post("/link_me_as_donor")
+@login_required
+def link_me_as_donor():
+    """
+    Verknüpft den eingeloggten User mit einem Donor.
+    - nimmt den ersten Donor ohne user_id
+    - oder (besser) verknüpft anhand email, falls vorhanden
+    """
+    # 1) Wenn ihr im users-table eine email habt und sie mit donor.email matchen wollt:
+    #    -> dann sag mir kurz, ob users eine email-Spalte hat. Falls nicht, skip.
+    #
+    # 2) Simple Variante: nimmt den ersten freien Donor
+    db_write(
+        """
+        UPDATE donor
+        SET user_id = %s
+        WHERE user_id IS NULL
+        LIMIT 1
+        """,
+        (current_user.id,)
+    )
 
+    return redirect(url_for("donors"))
 # Donors page (optional)
 @app.route("/donors", methods=["GET"])
 @login_required
