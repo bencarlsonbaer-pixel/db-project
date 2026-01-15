@@ -40,12 +40,13 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 
 # =========================
-# GitHub Webhook (AUTO DEPLOY) - HARD DEPLOY (fixes "local changes" issues)
+# GitHub Webhook (AUTO DEPLOY)
 # =========================
 
 WEBHOOK_LOG = os.path.expanduser("~/mysite/webhook.log")
 
-def _wh_log(msg: str):
+def log_webhook(msg: str):
+    """Write webhook debug lines to a file (useful when PA error log doesn't update)."""
     try:
         with open(WEBHOOK_LOG, "a", encoding="utf-8") as f:
             f.write(msg + "\n")
@@ -54,11 +55,7 @@ def _wh_log(msg: str):
 
 
 def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
-    """
-    Accepts GitHub signatures:
-    - X-Hub-Signature: sha1=...
-    - X-Hub-Signature-256: sha256=...
-    """
+    """Validate GitHub webhook signature from X-Hub-Signature or X-Hub-Signature-256."""
     if not sig_header or "=" not in sig_header:
         return False
     if not secret:
@@ -76,38 +73,36 @@ def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
 @app.post("/update_server")
 def webhook():
     """
-    HARD DEPLOY:
-    - verifies signature
-    - fetches origin
-    - resets hard to origin/main (overwrites local changes)
-    - cleans untracked files
-    This prevents "would be overwritten by merge" forever.
+    GitHub webhook: verify signature + HARD deploy
+    (überschreibt lokale Änderungen, damit Deploy immer klappt)
     """
-    try:
-        sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
-        if not is_valid_signature(sig, request.data, W_SECRET):
-            _wh_log("Unauthorized: bad signature or missing W_SECRET")
-            return "Unauthorized", 401
+    sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
+    log_webhook(f"--- delivery --- sig_present={bool(sig)} bytes={len(request.data)}")
 
+    if not is_valid_signature(sig, request.data, W_SECRET):
+        log_webhook("Unauthorized: signature invalid OR W_SECRET missing")
+        return "Unauthorized", 401
+
+    try:
         repo_path = os.path.expanduser("~/mysite")
-        _wh_log(f"Deploy start repo_path={repo_path}")
+        log_webhook(f"repo_path={repo_path}")
 
         repo = git.Repo(repo_path)
 
-        # Make sure we have origin and fetch newest commits
+        # fetch latest
         repo.remotes.origin.fetch(prune=True)
 
-        # HARD RESET to origin/main
+        # reset hard to origin/main (oder origin/master falls ihr master nutzt)
         repo.git.reset("--hard", "origin/main")
 
-        # Remove untracked files/folders (incl. ones created manually on server)
+        # remove untracked files/folders (damit nichts blockiert)
         repo.git.clean("-fd")
 
-        _wh_log("Deploy OK: reset --hard origin/main + clean -fd")
+        log_webhook("HARD DEPLOY OK (reset --hard + clean -fd)")
         return "Updated PythonAnywhere successfully", 200
 
     except Exception as e:
-        _wh_log(f"ERROR: {type(e).__name__}: {e}")
+        log_webhook(f"ERROR {type(e).__name__}: {e}")
         logger.exception("Webhook update failed: %s", e)
         return "Update failed", 500
 
@@ -221,71 +216,47 @@ def users():
 
 
 # -----------------------
-# Donors page (STABLE: NO user_id)
+# Donors page
 # -----------------------
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
-    """
-    Guaranteed stable donors page:
-    - NO donor.user_id usage
-    - Shows Top Donors, Recent Donations, and Donor Directory
-    """
+    donors_list = db_read(
+        "SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name",
+        ()
+    ) or []
 
-    # 1) Donor directory
-    donors_list = []
-    try:
-        donors_list = db_read(
-            "SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name",
-            ()
-        ) or []
-    except Exception:
-        logger.exception("Failed loading donor directory")
-        donors_list = []
+    top_donors = db_read(
+        """
+        SELECT d.donor_id,
+               d.name,
+               COALESCE(SUM(dn.amount), 0) AS total_amount,
+               COUNT(dn.donation_id) AS donation_count
+        FROM donor d
+        LEFT JOIN donation dn ON dn.donor_id = d.donor_id
+        GROUP BY d.donor_id, d.name
+        ORDER BY total_amount DESC
+        LIMIT 10
+        """,
+        ()
+    ) or []
 
-    # 2) Top donors
-    top_donors = []
-    try:
-        top_donors = db_read(
-            """
-            SELECT d.donor_id,
-                   d.name,
-                   COALESCE(SUM(dn.amount), 0) AS total_amount,
-                   COUNT(dn.donation_id) AS donation_count
-            FROM donor d
-            LEFT JOIN donation dn ON dn.donor_id = d.donor_id
-            GROUP BY d.donor_id, d.name
-            ORDER BY total_amount DESC
-            LIMIT 10
-            """,
-            ()
-        ) or []
-    except Exception:
-        logger.exception("Failed loading top_donors")
-        top_donors = []
+    recent_donations = db_read(
+        """
+        SELECT dn.date,
+               d.name AS donor_name,
+               dn.amount,
+               COALESCE(c.purpose, '-') AS campaign_purpose
+        FROM donation dn
+        JOIN donor d ON d.donor_id = dn.donor_id
+        LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
+        ORDER BY dn.date DESC, dn.donation_id DESC
+        LIMIT 10
+        """,
+        ()
+    ) or []
 
-    # 3) Recent donations
-    recent_donations = []
-    try:
-        recent_donations = db_read(
-            """
-            SELECT dn.date,
-                   d.name AS donor_name,
-                   dn.amount,
-                   COALESCE(c.purpose, '-') AS campaign_purpose
-            FROM donation dn
-            JOIN donor d ON d.donor_id = dn.donor_id
-            LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
-            ORDER BY dn.date DESC, dn.donation_id DESC
-            LIMIT 10
-            """,
-            ()
-        ) or []
-    except Exception:
-        logger.exception("Failed loading recent_donations")
-        recent_donations = []
-
-    # 4) My donation path DISABLED (because donor.user_id does not exist)
+    # Keep template variable, even if empty
     my_spend_path = []
 
     return render_template(
@@ -308,7 +279,7 @@ def dbexplorer():
 
     if raw:
         if isinstance(raw[0], dict):
-            key = list(raw[0].keys())[0]
+            key = list(raw[0].keys())[0]  # Tables_in_<dbname>
             tables = [r[key] for r in raw]
         else:
             tables = [r[0] for r in raw]
