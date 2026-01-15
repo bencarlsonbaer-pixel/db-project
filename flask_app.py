@@ -43,24 +43,39 @@ login_manager.login_view = "login"
 # Helper: schema safety (NO CONSOLE NEEDED)
 # =========================
 
+def donor_has_user_id_column() -> bool:
+    try:
+        rows = db_read("SHOW COLUMNS FROM donor LIKE 'user_id'", ())
+        return bool(rows)
+    except Exception:
+        logger.exception("Could not check donor.user_id column")
+        return False
+
+
 def ensure_donor_user_id_column():
     """
-    Ensures donor.user_id exists (so admin button + my donations cannot crash).
-    Runs safely: if it already exists, nothing happens.
+    Tries to add donor.user_id if missing.
+    NEVER crashes the app if ALTER TABLE fails.
     """
     try:
-        cols = db_read("SHOW COLUMNS FROM donor LIKE 'user_id'", ())
-        if cols:
+        if donor_has_user_id_column():
             return
-        logger.info("donor.user_id missing -> adding column user_id INT NULL")
+
+        logger.info("donor.user_id missing -> trying to add it via ALTER TABLE")
         db_write("ALTER TABLE donor ADD COLUMN user_id INT NULL", ())
-        # Optional: unique (one user -> one donor). If it fails, ignore.
+
+        # optional unique (ignore if fails)
         try:
             db_write("ALTER TABLE donor ADD UNIQUE (user_id)", ())
         except Exception:
             pass
+
+        logger.info("donor.user_id added successfully")
+
     except Exception:
-        logger.exception("ensure_donor_user_id_column failed (donor table missing?)")
+        # If PythonAnywhere user has no ALTER privileges, this will fail.
+        # We still must NOT crash.
+        logger.exception("ensure_donor_user_id_column failed (no ALTER privilege or other issue)")
 
 
 def table_exists(table_name: str) -> bool:
