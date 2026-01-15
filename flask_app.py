@@ -9,44 +9,73 @@ from auth import login_manager, authenticate, register_user
 from flask_login import login_user, logout_user, login_required, current_user
 import logging
 
+# -----------------------
+# Logging
+# -----------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# Load .env variables (on PythonAnywhere, prefer setting env vars in Web tab)
+# -----------------------
+# Env
+# -----------------------
 load_dotenv()
 W_SECRET = os.getenv("W_SECRET", "")
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
+FLASK_DEBUG = os.getenv("FLASK_DEBUG", "0") == "1"
 
-# Init flask app
+# -----------------------
+# App
+# -----------------------
 app = Flask(__name__)
-app.config["DEBUG"] = os.getenv("FLASK_DEBUG", "0") == "1"
+app.config["DEBUG"] = FLASK_DEBUG
 app.secret_key = FLASK_SECRET_KEY
 
-# Init auth
+# -----------------------
+# Auth
+# -----------------------
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
+# =========================
+# Helper: schema safety (NO CONSOLE NEEDED)
+# =========================
+
+def ensure_donor_user_id_column():
+    """
+    Ensures donor.user_id exists (so admin button + my donations cannot crash).
+    Runs safely: if it already exists, nothing happens.
+    """
+    try:
+        cols = db_read("SHOW COLUMNS FROM donor LIKE 'user_id'", ())
+        if cols:
+            return
+        logger.info("donor.user_id missing -> adding column user_id INT NULL")
+        db_write("ALTER TABLE donor ADD COLUMN user_id INT NULL", ())
+        # Optional: unique (one user -> one donor). If it fails, ignore.
+        try:
+            db_write("ALTER TABLE donor ADD UNIQUE (user_id)", ())
+        except Exception:
+            pass
+    except Exception:
+        logger.exception("ensure_donor_user_id_column failed (donor table missing?)")
+
+
+def table_exists(table_name: str) -> bool:
+    try:
+        rows = db_read("SHOW TABLES LIKE %s", (table_name,))
+        return bool(rows)
+    except Exception:
+        return False
+
 
 # =========================
 # GitHub Webhook (AUTO DEPLOY)
 # =========================
 
-WEBHOOK_LOG = os.path.expanduser("~/mysite/webhook.log")
-
-
-def log_webhook(msg: str):
-    """Write webhook debug lines to a file (useful when PA error log doesn't update)."""
-    try:
-        with open(WEBHOOK_LOG, "a", encoding="utf-8") as f:
-            f.write(msg + "\n")
-    except Exception:
-        pass
-
-
 def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
-    """Validate GitHub webhook signature from X-Hub-Signature or X-Hub-Signature-256."""
     if not sig_header or "=" not in sig_header:
         return False
     if not secret:
@@ -63,30 +92,18 @@ def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
 
 @app.post("/update_server")
 def webhook():
-    """
-    GitHub Webhook endpoint:
-    - verifies signature
-    - pulls latest code into ~/mysite
-    """
     try:
         sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
-        log_webhook(f"--- delivery --- sig_present={bool(sig)} bytes={len(request.data)}")
-
         if not is_valid_signature(sig, request.data, W_SECRET):
-            log_webhook("Unauthorized: signature invalid OR W_SECRET missing")
             return "Unauthorized", 401
 
         repo_path = os.path.expanduser("~/mysite")
-        log_webhook(f"repo_path={repo_path}")
-
         repo = git.Repo(repo_path)
         repo.remotes.origin.pull()
-
-        log_webhook("Pull OK")
+        logger.info("Updated PythonAnywhere successfully via webhook")
         return "Updated PythonAnywhere successfully", 200
 
     except Exception as e:
-        log_webhook(f"ERROR {type(e).__name__}: {e}")
         logger.exception("Webhook update failed: %s", e)
         return "Update failed", 500
 
@@ -165,7 +182,6 @@ def index():
         )
         return render_template("main_page.html", todos=todos)
 
-    # POST
     content = request.form.get("contents", "").strip()
     due = request.form.get("due_at", None)
 
@@ -193,123 +209,180 @@ def complete():
     return redirect(url_for("index"))
 
 
-# Tutorial-Route: /users
 @app.route("/users", methods=["GET"])
 @login_required
 def users():
     users = db_read("SELECT username FROM users ORDER BY username", ())
     return render_template("users.html", users=users)
 
+
+# -----------------------
+# Admin button: link current user to a donor (NO CONSOLE)
+# -----------------------
 @app.post("/link_me_as_donor")
 @login_required
 def link_me_as_donor():
     """
-    Verknüpft den eingeloggten User mit einem Donor.
-    - nimmt den ersten Donor ohne user_id
-    - oder (besser) verknüpft anhand email, falls vorhanden
+    Verknüpft den eingeloggten User automatisch mit einem Donor (ohne Console).
+    Nimmt den ersten Donor ohne user_id.
     """
-    # 1) Wenn ihr im users-table eine email habt und sie mit donor.email matchen wollt:
-    #    -> dann sag mir kurz, ob users eine email-Spalte hat. Falls nicht, skip.
-    #
-    # 2) Simple Variante: nimmt den ersten freien Donor
-    db_write(
-        """
-        UPDATE donor
-        SET user_id = %s
-        WHERE user_id IS NULL
-        LIMIT 1
-        """,
-        (current_user.id,)
-    )
+    ensure_donor_user_id_column()
 
-    return redirect(url_for("donors"))
-# Donors page (optional)
+    try:
+        db_write(
+            """
+            UPDATE donor
+            SET user_id = %s
+            WHERE user_id IS NULL
+            LIMIT 1
+            """,
+            (current_user.id,),
+        )
+        return redirect(url_for("donors"))
+    except Exception:
+        logger.exception("link_me_as_donor failed")
+        return redirect(url_for("donors"))
+
+
+# -----------------------
+# Donors page
+# -----------------------
 @app.route("/donors", methods=["GET"])
 @login_required
 def donors():
-    # Stammdaten: alle Donors
-    donors = db_read(
-        "SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name",
-        ()
-    )
+    """
+    Crash-sichere Donor-Seite:
+    - zeigt Stammdaten, Top-Donors, Neuste Spenden
+    - zeigt 'Meine Spenden' nur wenn donor.user_id existiert + verknüpft
+    - nutzt donation_delivery + delivery_item (passend zu eurem TODOS.sql)
+    """
+    ensure_donor_user_id_column()
 
-    # Top-Donors
-    top_donors = db_read(
-        """
-        SELECT d.donor_id,
-               d.name,
-               COALESCE(SUM(dn.amount), 0) AS total_amount,
-               COUNT(dn.donation_id) AS donation_count
-        FROM donor d
-        LEFT JOIN donation dn ON dn.donor_id = d.donor_id
-        GROUP BY d.donor_id, d.name
-        ORDER BY total_amount DESC
-        LIMIT 10
-        """,
-        ()
-    )
-
-    # Neuste Spenden
-    recent_donations = db_read(
-        """
-        SELECT dn.date,
-               d.name AS donor_name,
-               dn.amount,
-               COALESCE(c.purpose, '-') AS campaign_purpose
-        FROM donation dn
-        JOIN donor d ON d.donor_id = dn.donor_id
-        LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
-        ORDER BY dn.date DESC, dn.donation_id DESC
-        LIMIT 10
-        """,
-        ()
-    )
-
-    # --- MEINE SPENDEN (Use Case 1) ---
-    my_spend_path = []
-    donor_row = db_read(
-        "SELECT donor_id, name FROM donor WHERE user_id=%s LIMIT 1",
-        (current_user.id,)
-    )
-
-    if donor_row:
-        my_donor_id = donor_row[0]["donor_id"]
-
-        my_spend_path = db_read(
-            """
-            SELECT
-              dn.donation_id,
-              dn.date,
-              dn.amount,
-              COALESCE(c.purpose, '-') AS campaign_purpose,
-              p.type AS product_type,
-              p.cost_per_unit,
-              dp.quantity AS shipped_qty,
-              del.delivery_id,
-              del.destination,
-              rc.location AS receiver_location
-            FROM donation dn
-            LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
-            LEFT JOIN products p ON p.product_id = dn.product_id
-            LEFT JOIN delivery_product dp ON dp.product_id = dn.product_id
-            LEFT JOIN delivery del ON del.delivery_id = dp.delivery_id
-            LEFT JOIN receiving_community rc ON rc.community_id = del.community_id
-            WHERE dn.donor_id = %s
-            ORDER BY dn.date DESC, dn.donation_id DESC
-            """,
-            (my_donor_id,)
+    # 1) Directory
+    donors_list = []
+    try:
+        donors_list = db_read(
+            "SELECT donor_id, name, email, IBAN, length_minutes FROM donor ORDER BY name",
+            ()
         )
+    except Exception:
+        logger.exception("Failed loading donor directory")
+
+    # 2) Top donors
+    top_donors = []
+    try:
+        top_donors = db_read(
+            """
+            SELECT d.donor_id,
+                   d.name,
+                   COALESCE(SUM(dn.amount), 0) AS total_amount,
+                   COUNT(dn.donation_id) AS donation_count
+            FROM donor d
+            LEFT JOIN donation dn ON dn.donor_id = d.donor_id
+            GROUP BY d.donor_id, d.name
+            ORDER BY total_amount DESC
+            LIMIT 10
+            """,
+            ()
+        )
+    except Exception:
+        logger.exception("Failed loading top_donors")
+
+    # 3) Recent donations
+    recent_donations = []
+    try:
+        recent_donations = db_read(
+            """
+            SELECT dn.date,
+                   d.name AS donor_name,
+                   dn.amount,
+                   COALESCE(c.purpose, '-') AS campaign_purpose
+            FROM donation dn
+            JOIN donor d ON d.donor_id = dn.donor_id
+            LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
+            ORDER BY dn.date DESC, dn.donation_id DESC
+            LIMIT 10
+            """,
+            ()
+        )
+    except Exception:
+        logger.exception("Failed loading recent_donations")
+
+    # 4) My donation path (Use Case 1) - only if linked
+    my_spend_path = []
+    try:
+        # If user_id column exists but no link, this returns empty -> OK
+        donor_row = db_read(
+            "SELECT donor_id FROM donor WHERE user_id=%s LIMIT 1",
+            (current_user.id,)
+        )
+
+        if donor_row:
+            my_donor_id = donor_row[0]["donor_id"]
+
+            # Use tables that exist in your TODOS.sql: donation_delivery + delivery_item
+            has_dd = table_exists("donation_delivery")
+            has_di = table_exists("delivery_item")
+
+            if has_dd:
+                sql = """
+                SELECT
+                  dn.donation_id,
+                  dn.date,
+                  dn.amount,
+                  COALESCE(c.purpose, '-') AS campaign_purpose,
+                  p.type AS product_type,
+                  p.cost_per_unit,
+                  dd.delivery_id,
+                  del.destination,
+                  rc.location AS receiver_location,
+                  CASE
+                    WHEN dd.delivery_id IS NULL THEN 'In Vorbereitung'
+                    ELSE 'Geliefert'
+                  END AS delivery_status
+                """
+
+                if has_di:
+                    sql += """,
+                      di.quantity AS shipped_qty
+                    """
+
+                sql += """
+                FROM donation dn
+                LEFT JOIN campaign c ON c.campaign_id = dn.campaign_id
+                LEFT JOIN products p ON p.product_id = dn.product_id
+                LEFT JOIN donation_delivery dd ON dd.donation_id = dn.donation_id
+                LEFT JOIN delivery del ON del.delivery_id = dd.delivery_id
+                LEFT JOIN receiving_community rc ON rc.community_id = del.community_id
+                """
+
+                if has_di:
+                    sql += """
+                    LEFT JOIN delivery_item di
+                      ON di.delivery_id = dd.delivery_id
+                     AND di.product_id = dn.product_id
+                    """
+
+                sql += """
+                WHERE dn.donor_id = %s
+                ORDER BY dn.date DESC, dn.donation_id DESC
+                """
+
+                my_spend_path = db_read(sql, (my_donor_id,))
+    except Exception:
+        logger.exception("Failed loading my_spend_path")
 
     return render_template(
         "donors.html",
-        donors=donors,
+        donors=donors_list,
         top_donors=top_donors,
         recent_donations=recent_donations,
         my_spend_path=my_spend_path
     )
 
+
 # -----------------------
-# DB Explorer (MySQL)
+# DB Explorer (optional)
 # -----------------------
 @app.route("/dbexplorer", methods=["GET", "POST"])
 @login_required
@@ -319,7 +392,7 @@ def dbexplorer():
 
     if raw:
         if isinstance(raw[0], dict):
-            key = list(raw[0].keys())[0]  # Tables_in_<dbname>
+            key = list(raw[0].keys())[0]
             tables = [r[key] for r in raw]
         else:
             tables = [r[0] for r in raw]
@@ -341,14 +414,12 @@ def dbexplorer():
             limit = 50
         limit = max(1, min(limit, 500))
 
-        # whitelist table names
         selected = [t for t in selected if t in tables]
 
         for t in selected:
             sql = f"SELECT * FROM `{t}`"
             params = []
 
-            # Optional raw WHERE (advanced; use carefully)
             if where_text:
                 sql += f" WHERE {where_text}"
 
@@ -377,15 +448,6 @@ def dbexplorer():
         results=results,
     )
 
-@app.route("/dashboard")
-@login_required
-def dashboard():
-    return render_template("dashboard.html")
 
-@app.route("/donate", methods=["GET"])
-@login_required
-def donate():
-    return render_template("donate.html")
-    
 if __name__ == "__main__":
     app.run()
