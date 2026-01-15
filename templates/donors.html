@@ -1,5 +1,8 @@
 {% extends "base.html" %}
+
 {% block title %}Donors Übersicht{% endblock %}
+
+{% block content %}
 
 <div class="page-header" style="margin-bottom:25px;">
   <h1 style="margin-top:0;">🤝 Spender & Spenden</h1>
@@ -8,25 +11,29 @@
     bis zur Lieferung der Hilfsgüter.
   </p>
 </div>
+
+<!-- Admin Button -->
 <div class="card">
-  <h2 style="margin-top:0;">🙋 Meine Spenden (Weg bis zur Lieferung)</h2>
-  <div class="muted" style="margin-bottom:10px;">
-    Hier siehst du, welches Produkt du finanziert hast und ob/wann es geliefert wurde.
-  </div>
-  
-<div style="margin-bottom:18px;">
+  <h2 style="margin-top:0;">🔗 Konto verbinden</h2>
+  <p class="muted" style="margin-bottom:10px;">
+    Falls „Meine Spenden“ leer ist, klicke einmal auf diesen Button. (Keine Console nötig.)
+  </p>
   <form method="POST" action="{{ url_for('link_me_as_donor') }}">
     <button type="submit" class="btn btn-danger">
       🔗 Mich als Spender verknüpfen
     </button>
   </form>
-
-  <p class="muted" style="margin-top:8px;">
-    Falls „Meine Spenden“ leer ist, klicke einmal auf diesen Button.
-  </p>
 </div>
+
+<!-- Meine Spenden -->
+<div class="card">
+  <h2 style="margin-top:0;">🙋 Meine Spenden (Weg bis zur Lieferung)</h2>
+  <div class="muted" style="margin-bottom:10px;">
+    Hier siehst du, welches Produkt du finanziert hast und ob/wann es geliefert wurde.
+  </div>
+
   <div class="tablewrap">
-    <table>
+    <table class="table table-striped">
       <thead>
         <tr>
           <th>Spende-ID</th>
@@ -34,7 +41,7 @@
           <th>Betrag</th>
           <th>Kampagne</th>
           <th>Produkt</th>
-          <th>Lieferstatus</th>
+          <th>Status</th>
           <th>Ziel</th>
           <th>Empfänger</th>
         </tr>
@@ -49,18 +56,20 @@
           <td>{{ r.product_type or "-" }}</td>
 
           {% if r.delivery_id %}
-            <td><span class="pill">Geliefert</span></td>
-            <td>{{ r.destination }}</td>
-            <td>{{ r.receiver_location }}</td>
+            <td><span class="label label-success">Geliefert</span></td>
+            <td>{{ r.destination or "-" }}</td>
+            <td>{{ r.receiver_location or "-" }}</td>
           {% else %}
-            <td><span class="pill">In Vorbereitung</span></td>
+            <td><span class="label label-warning">In Vorbereitung</span></td>
             <td class="muted">—</td>
             <td class="muted">—</td>
           {% endif %}
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="muted">Du hast noch keine Spenden (oder dein User ist noch nicht mit einem Donor verknüpft).</td>
+          <td colspan="8" class="muted">
+            Du hast noch keine Spenden (oder dein User ist noch nicht mit einem Donor verknüpft).
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -68,20 +77,14 @@
   </div>
 </div>
 
-{% block content %}
-<div class="card">
-  <h1 style="margin:0;">Donors</h1>
-  <div class="muted">Rangliste der Top-Spender und die neuesten Spenden inkl. Kampagne.</div>
-</div>
-
-<div class="row">
+<div class="row" style="display:flex; gap:14px; flex-wrap:wrap;">
   <!-- TOP DONORS -->
   <div class="card" style="flex:1; min-width:320px;">
     <h2 style="margin-top:0;">🏆 Top-Donors</h2>
     <div class="muted" style="margin-bottom:10px;">Sortiert nach gesamter Spendensumme.</div>
 
     <div class="tablewrap">
-      <table>
+      <table class="table table-striped">
         <thead>
           <tr>
             <th>Rang</th>
@@ -112,7 +115,7 @@
     <div class="muted" style="margin-bottom:10px;">Letzte Spenden inkl. Betrag und Kampagne.</div>
 
     <div class="tablewrap">
-      <table>
+      <table class="table table-striped">
         <thead>
           <tr>
             <th>Datum</th>
@@ -138,13 +141,13 @@
   </div>
 </div>
 
-<!-- OPTIONAL: Donor directory (eure bisherige Liste) -->
+<!-- Alle Donors -->
 <div class="card">
   <h2 style="margin-top:0;">📇 Alle Donors</h2>
   <div class="muted" style="margin-bottom:10px;">Stammdaten aus der donor Tabelle.</div>
 
   <div class="tablewrap">
-    <table>
+    <table class="table table-striped">
       <thead>
         <tr>
           <th>ID</th>
@@ -170,5 +173,5 @@
     </table>
   </div>
 </div>
-{% endblock %}
 
+{% endblock %}
