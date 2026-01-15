@@ -40,7 +40,7 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 
 # =========================
-# GitHub Webhook (AUTO DEPLOY)
+# GitHub Webhook (AUTO DEPLOY) - Tutorial Standard
 # =========================
 
 def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
@@ -61,31 +61,19 @@ def is_valid_signature(sig_header: str, data: bytes, secret: str) -> bool:
 @app.post("/update_server")
 def webhook():
     """
-    GitHub webhook:
-    - verifies signature
-    - auto-stashes local changes to avoid "would be overwritten" error
-    - pulls latest code
+    Minimal webhook: verify signature + git pull.
+    Voraussetzung: Keine lokalen Änderungen auf PythonAnywhere (sonst pull-Fehler).
     """
+    sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
+    if not is_valid_signature(sig, request.data, W_SECRET):
+        return "Unauthorized", 401
+
     try:
-        sig = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
-        if not is_valid_signature(sig, request.data, W_SECRET):
-            return "Unauthorized", 401
-
-        repo_path = os.path.expanduser("~/mysite")
-        repo = git.Repo(repo_path)
-
-        # If local changes exist, stash them so pull works
-        try:
-            if repo.is_dirty(untracked_files=True):
-                logger.warning("Repo dirty -> auto-stashing local changes before pull")
-                repo.git.stash("push", "-u", "-m", "webhook-autostash")
-        except Exception:
-            logger.exception("Could not stash changes (continuing)")
-
-        repo.remotes.origin.pull()
+        repo = git.Repo(os.path.expanduser("~/mysite"))
+        origin = repo.remotes.origin
+        origin.pull()
         logger.info("Updated PythonAnywhere successfully via webhook")
         return "Updated PythonAnywhere successfully", 200
-
     except Exception as e:
         logger.exception("Webhook update failed: %s", e)
         return "Update failed", 500
